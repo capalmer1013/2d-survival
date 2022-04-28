@@ -33,7 +33,7 @@ class Background:
         for x in range(self.width):
             for y in range(self.height):
                 pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
-
+        pass
 
 class Player:
     U = 16
@@ -146,7 +146,7 @@ class Enemy:
         pass
 
     def stateInit(self):
-        if self.stepCount > 5:
+        if self.stepCount > 30:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateRandomWalk])
         return self.stateInit
@@ -154,7 +154,7 @@ class Enemy:
     def stateRandomWalk(self):
         if self.stepCount == 0:
             self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
-        elif self.stepCount > 60:
+        elif self.stepCount > 120:
             return random.choice([self.stateAttack, self.stateInit])
 
         self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
