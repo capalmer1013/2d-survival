@@ -1,5 +1,6 @@
 import math
-
+import sys
+import os
 
 def update_list(list):
     for elem in list:
@@ -42,3 +43,14 @@ def stepFunction(x):
         return 1
     else:
         return -1
+
+
+def resource_path(relative_path):
+    """ Get absolute path to resource, works for dev and for PyInstaller """
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)

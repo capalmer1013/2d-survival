@@ -12,7 +12,7 @@ class App:
 
     def __init__(self):
         pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
-        pyxel.load("assets.pyxres")
+        pyxel.load(resource_path("assets.pyxres"))
         pyxel.sound(0).set("a3a2c1a1", "p", "7", "s", 5)
         pyxel.sound(1).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE

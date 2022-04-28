@@ -35,7 +35,7 @@ class Background:
 
 class Player:
     U = 16
-    V = 0
+    V = 16
 
     def __init__(self, x, y, gameObjects):
         self.x = x
@@ -132,6 +132,16 @@ class Enemy:
         self.player = player
         self.stepCount = 0
         self.state = self.stateInit
+        self.dirtime = 0
+
+    def debounceDir(self, w, h):
+        if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
+            self.dir[0] = w
+            self.dir[1] = h
+            self.dirtime = 0
+        self.dirtime += 1
+
+        pass
 
     def stateInit(self):
         if self.stepCount > 30:
@@ -140,8 +150,9 @@ class Enemy:
         return self.stateInit
 
     def stateAttack(self):
-        self.x, self.y, self.dir[0], self.dir[1] = stepToward(self.player, self, ENEMY_SPEED)
-        if self.stepCount > 30:
+        self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED)
+        self.debounceDir(h, w)
+        if self.stepCount > 240:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateInit])
 
