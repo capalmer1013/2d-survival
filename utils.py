@@ -2,6 +2,7 @@ import math
 import sys
 import os
 
+
 def update_list(list):
     for elem in list:
         elem.update()
@@ -38,7 +39,7 @@ def stepToward(destObj, curObj, speed):
     return deltax+curObj.x, deltay+curObj.y, stepFunction(deltax)*-1, stepFunction(deltay) * -1
 
 
-def stepFunction(x):
+def stepFunction(x):  # todo: remove and refactor uses to use the pyxel sgn(x) func
     if x > 0:
         return 1
     else:
