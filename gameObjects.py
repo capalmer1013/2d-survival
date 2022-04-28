@@ -4,7 +4,9 @@ from constants import *
 from utils import *
 
 class BaseGameObject:
-    pass
+    def __init__(self, x=0, y=0):
+        self.x = x
+        self.y = y
 
 
 class Background:
@@ -29,7 +31,6 @@ class Background:
     def draw(self):
         for x in range(self.width):
             for y in range(self.height):
-                # todo: refactor this to not be a steaming pile of garbage
                 pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 
 
@@ -68,31 +69,30 @@ class Player:
             self.gameObjects.append(Bullet(
                 self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, UP
             ))
-            pyxel.play(0, 0)
+            pyxel.play(0, 1)
         if pyxel.btnp(pyxel.KEY_W):
             self.gameObjects.append(Bullet(
                 self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y + (PLAYER_WIDTH - BULLET_HEIGHT) / 2, UP
             ))
-            pyxel.play(0, 0)
+            pyxel.play(0, 1)
         if pyxel.btnp(pyxel.KEY_A):
             self.gameObjects.append(Bullet(
                 self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y + (PLAYER_WIDTH - BULLET_HEIGHT) / 2, LEFT
             ))
-            pyxel.play(0, 0)
+            pyxel.play(0, 1)
         if pyxel.btnp(pyxel.KEY_S):
             self.gameObjects.append(Bullet(
                 self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y + (PLAYER_WIDTH - BULLET_HEIGHT) / 2, DOWN
             ))
-            pyxel.play(0, 0)
+            pyxel.play(0, 1)
         if pyxel.btnp(pyxel.KEY_D):
             self.gameObjects.append(Bullet(
                 self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y + (PLAYER_WIDTH - BULLET_HEIGHT) / 2, RIGHT
             ))
-            pyxel.play(0, 0)
+            pyxel.play(0, 1)
 
     def draw(self):
-        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w , self.h, 14)
-        #pyxel.blt(self.x, self.y, 0, 0, 0, self.w, self.h, 0)
+        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
 
 class Bullet:
@@ -104,7 +104,7 @@ class Bullet:
         self.h = BULLET_HEIGHT
         self.is_alive = True
         self.dir = dir
-        self.maxDistance = 60
+        self.maxDistance = 40
         self.distance = 0
 
     def update(self):
@@ -133,6 +133,7 @@ class Enemy:
         self.stepCount = 0
         self.state = self.stateInit
         self.dirtime = 0
+        self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
 
     def debounceDir(self, w, h):
         if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
@@ -146,15 +147,23 @@ class Enemy:
     def stateInit(self):
         if self.stepCount > 5:
             self.stepCount = 0
-            return self.stateAttack
+            return random.choice([self.stateAttack, self.stateRandomWalk])
         return self.stateInit
+
+    def stateRandomWalk(self):
+        if self.stepCount == 0:
+            self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
+        elif self.stepCount > 60:
+            return random.choice([self.stateAttack, self.stateInit])
+
+        self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
+        return self.stateRandomWalk
 
     def stateAttack(self):
         self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED)
-        # self.debounceDir(h, w)
-        # if self.stepCount > 240:
-        #     self.stepCount = 0
-        #     return random.choice([self.stateAttack, self.stateInit])
+        if self.stepCount > 240:
+            self.stepCount = 0
+            return random.choice([self.stateAttack, self.stateInit, self.stateRandomWalk])
 
         return self.stateAttack
 

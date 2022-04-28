@@ -13,8 +13,8 @@ class App:
     def __init__(self):
         pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
         pyxel.load(resource_path("assets.pyxres"))
-        pyxel.sound(0).set("a3a2c1a1", "p", "7", "s", 5)
-        pyxel.sound(1).set("a3a2c2c2", "n", "7742", "s", 10)
+        pyxel.sound(1).set("a3a2c1a1", "p", "7", "s", 5)
+        pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE
         self.score = 0
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
@@ -53,7 +53,7 @@ class App:
                     gameObjects.append(
                         Blast(enemy.x + ENEMY_WIDTH / 2, enemy.y + ENEMY_HEIGHT / 2)
                     )
-                    pyxel.play(1, 1)
+                    pyxel.play(1, 2)
                     self.score += 10
 
         for enemy in enemies:
@@ -65,13 +65,14 @@ class App:
                         self.player.y + PLAYER_HEIGHT / 2,
                     )
                 )
-                pyxel.play(1, 1)
+                #pyxel.play(1, 1)
+                pyxel.play(0, 0)
                 self.scene = SCENE_GAMEOVER
 
     def spawnEnemies(self):
         if pyxel.frame_count % 12 == 0:
             tmp = Enemy(pyxel.rndi(0, pyxel.width - ENEMY_WIDTH), pyxel.rndi(0, pyxel.height - ENEMY_HEIGHT), self.player)
-            if distance(self.player, tmp) > 32:
+            if distance(self.player, tmp) > BASE_BLOCK*4:
                 gameObjects.append(tmp)
             pass
 
