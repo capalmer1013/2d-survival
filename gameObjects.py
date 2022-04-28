@@ -144,17 +144,17 @@ class Enemy:
         pass
 
     def stateInit(self):
-        if self.stepCount > 30:
+        if self.stepCount > 5:
             self.stepCount = 0
             return self.stateAttack
         return self.stateInit
 
     def stateAttack(self):
         self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED)
-        self.debounceDir(h, w)
-        if self.stepCount > 240:
-            self.stepCount = 0
-            return random.choice([self.stateAttack, self.stateInit])
+        # self.debounceDir(h, w)
+        # if self.stepCount > 240:
+        #     self.stepCount = 0
+        #     return random.choice([self.stateAttack, self.stateInit])
 
         return self.stateAttack
 

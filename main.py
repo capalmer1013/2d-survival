@@ -19,34 +19,35 @@ class App:
         self.score = 0
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, gameObjects)
+        self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
+                                SCENE_PLAY: self.update_play_scene,
+                                SCENE_GAMEOVER: self.update_gameover_scene}
+
+        self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
+                              SCENE_PLAY: self.draw_play_scene,
+                              SCENE_GAMEOVER: self.draw_gameover_scene}
         pyxel.run(self.update, self.draw)
 
     def update(self):
         if pyxel.btn(pyxel.KEY_Q):
             pyxel.quit()
-
         self.background.update()
-        if self.scene == SCENE_TITLE:
-            self.update_title_scene()
-        elif self.scene == SCENE_PLAY:
-            self.update_play_scene()
-        elif self.scene == SCENE_GAMEOVER:
-            self.update_gameover_scene()
+        self.sceneUpdateDict[self.scene]()
 
     def update_title_scene(self):
         if pyxel.btnp(pyxel.KEY_RETURN):
             self.scene = SCENE_PLAY
 
+    def collision(self, a, b):
+        return a.x + a.w > b.x and b.x + b.w > a.x and a.y + a.h > b.y and b.y + b.h > a.y
+
     def collisionDetection(self):
         # todo: generalize collision detection
-        for enemy in [x for x in gameObjects if type(x) == Enemy]:
-            for bullet in [x for x in gameObjects if type(x) == Bullet]:
-                if (
-                        enemy.x + enemy.w > bullet.x
-                        and bullet.x + bullet.w > enemy.x
-                        and enemy.y + enemy.h > bullet.y
-                        and bullet.y + bullet.h > enemy.y
-                ):
+        enemies = [x for x in gameObjects if type(x) == Enemy]
+        bullets = [x for x in gameObjects if type(x) == Bullet]
+        for enemy in enemies:
+            for bullet in bullets:
+                if self.collision(enemy, bullet):
                     enemy.is_alive = False
                     bullet.is_alive = False
                     gameObjects.append(
@@ -55,13 +56,8 @@ class App:
                     pyxel.play(1, 1)
                     self.score += 10
 
-        for enemy in [x for x in gameObjects if type(x) == Enemy]:
-            if (
-                    self.player.x + self.player.w > enemy.x
-                    and enemy.x + enemy.w > self.player.x
-                    and self.player.y + self.player.h > enemy.y
-                    and enemy.y + enemy.h > self.player.y
-            ):
+        for enemy in enemies:
+            if self.collision(self.player, enemy):
                 enemy.is_alive = False
                 gameObjects.append(
                     Blast(
@@ -73,7 +69,7 @@ class App:
                 self.scene = SCENE_GAMEOVER
 
     def spawnEnemies(self):
-        if pyxel.frame_count % 40 == 0:
+        if pyxel.frame_count % 12 == 0:
             tmp = Enemy(pyxel.rndi(0, pyxel.width - ENEMY_WIDTH), pyxel.rndi(0, pyxel.height - ENEMY_HEIGHT), self.player)
             if distance(self.player, tmp) > 32:
                 gameObjects.append(tmp)
@@ -100,12 +96,7 @@ class App:
     def draw(self):
         pyxel.cls(0)
         self.background.draw()
-        if self.scene == SCENE_TITLE:
-            self.draw_title_scene()
-        elif self.scene == SCENE_PLAY:
-            self.draw_play_scene()
-        elif self.scene == SCENE_GAMEOVER:
-            self.draw_gameover_scene()
+        self.sceneDrawDict[self.scene]()
         pyxel.text(39, 4, f"SCORE {self.score:5}", 7)
 
     def draw_title_scene(self):
