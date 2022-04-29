@@ -3,8 +3,6 @@ from constants import *
 from utils import *
 from gameObjects import *
 
-gameObjects = []
-
 
 class App:
     SCREEN_WIDTH = BASE_BLOCK * BLOCK_WIDTH
@@ -17,8 +15,15 @@ class App:
         #pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE
         self.score = 0
+        self.gameObjects = []
+        self.persistentGameObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
-        self.player = Player(pyxel.width / 2, pyxel.height - 20, gameObjects)
+        self.player = Player(pyxel.width / 2, pyxel.height - 20, self.gameObjects, self)
+        self.cursor = Cursor(0, 0)
+        self.gameObjects.append(self.player)
+        self.persistentGameObjects.append(self.cursor)
+
+        # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
                                 SCENE_PLAY: self.update_play_scene,
                                 SCENE_GAMEOVER: self.update_gameover_scene}
@@ -26,6 +31,8 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player)]
+
         pyxel.run(self.update, self.draw)
 
     def update(self):
@@ -38,78 +45,63 @@ class App:
         if pyxel.btnp(pyxel.KEY_RETURN):
             self.scene = SCENE_PLAY
 
-    def collision(self, a, b):
-        return a.x + a.w > b.x and b.x + b.w > a.x and a.y + a.h > b.y and b.y + b.h > a.y
-
     def collisionDetection(self):
-        # todo: generalize collision detection
-        enemies = [x for x in gameObjects if type(x) == Enemy]
-        bullets = [x for x in gameObjects if type(x) == Bullet]
-        for enemy in enemies:
-            for bullet in bullets:
-                if self.collision(enemy, bullet):
-                    enemy.is_alive = False
-                    bullet.is_alive = False
-                    gameObjects.append(
-                        Blast(enemy.x + ENEMY_WIDTH / 2, enemy.y + ENEMY_HEIGHT / 2)
-                    )
-                    pyxel.play(1, 2)
-                    self.score += 10
-
-        for enemy in enemies:
-            if self.collision(self.player, enemy):
-                enemy.is_alive = False
-                gameObjects.append(
-                    Blast(
-                        self.player.x + PLAYER_WIDTH / 2,
-                        self.player.y + PLAYER_HEIGHT / 2,
-                    )
-                )
-                #pyxel.play(1, 1)
-                pyxel.play(0, 0)
-                self.scene = SCENE_GAMEOVER
+        for each in self.collisionList:
+            aList = [x for x in self.gameObjects if isinstance(x, each[0])]
+            bList = [x for x in self.gameObjects if isinstance(x, each[1])]
+            for a in aList:
+                for b in bList:
+                    if collision(a, b):
+                        a.collide(b)
+                        b.collide(a)
 
     def spawnEnemies(self):
         if pyxel.frame_count % 12 == 0:
-            tmp = Enemy(pyxel.rndi(0, pyxel.width - ENEMY_WIDTH), pyxel.rndi(0, pyxel.height - ENEMY_HEIGHT), self.player)
+            tmp = Enemy(pyxel.rndi(0, pyxel.width - ENEMY_WIDTH), pyxel.rndi(0, pyxel.height - ENEMY_HEIGHT), self.player, self)
             if distance(self.player, tmp) > BASE_BLOCK*4:
-                gameObjects.append(tmp)
+                self.gameObjects.append(tmp)
             pass
 
     def update_play_scene(self):
         self.spawnEnemies()
         self.collisionDetection()
-        self.player.update()
-        update_list(gameObjects)
-        cleanup_list(gameObjects)
+        update_list(self.persistentGameObjects)
+        update_list(self.gameObjects)
+        cleanup_list(self.persistentGameObjects)
+        cleanup_list(self.gameObjects)
 
     def update_gameover_scene(self):
-        update_list(gameObjects)
-        cleanup_list(gameObjects)
+        update_list(self.gameObjects)
+        cleanup_list(self.gameObjects)
 
         if pyxel.btnp(pyxel.KEY_RETURN):
             self.scene = SCENE_PLAY
             self.player.x = pyxel.width / 2
             self.player.y = pyxel.height / 2
             self.score = 0
-            gameObjects.clear()
+            self.gameObjects.clear()
+            self.gameObjects.append(self.player)
 
     def draw(self):
         pyxel.cls(0)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
         pyxel.text(39, 4, f"SCORE {self.score:5}", 7)
+        pyxel.text(39, 16, f"Health: {self.player.health}", 7)
+        pyxel.text(39, 28, f"damage count {self.player.damageCount}", 7)
+        pyxel.text(39, 36, f"cursor x: {self.cursor.x} y: {self.cursor.y}", 7)
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "AirStrike Revolved Movement", pyxel.frame_count % 16)
         pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
     def draw_play_scene(self):
-        self.player.draw()
-        draw_list(gameObjects)
+        draw_list(self.gameObjects)
+        draw_list(self.persistentGameObjects)
 
     def draw_gameover_scene(self):
-        draw_list(gameObjects)
+        draw_list(self.gameObjects)
+        draw_list(self.persistentGameObjects)
         pyxel.text(43, 66, "GAME OVER", 8)
         pyxel.text(31, 126, "- PRESS ENTER -", 13)
 

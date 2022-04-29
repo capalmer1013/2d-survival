@@ -2,6 +2,7 @@ import math
 import sys
 import os
 
+import pyxel
 
 def update_list(list):
     for elem in list:
@@ -28,14 +29,14 @@ def distance(a, b):
 
 
 def stepToward(destObj, curObj, speed):
-    deltax = destObj.x - curObj.x
-    deltay = destObj.y - curObj.y
-    if abs(deltax) > abs(deltay):
-        deltax = stepFunction(deltax)*speed
-        deltay = 0
-    else:
-        deltay = stepFunction(deltay)*speed
-        deltax = 0
+    deltax = pyxel.sgn(destObj.x - curObj.x)*speed
+    deltay = pyxel.sgn(destObj.y - curObj.y)*speed
+    # if abs(deltax) > abs(deltay):
+    #     deltax = deltax
+    #     deltay = 0
+    # else:
+    #     deltay = deltay
+    #     deltax = 0
     return deltax+curObj.x, deltay+curObj.y, stepFunction(deltax)*-1, stepFunction(deltay) * -1
 
 
@@ -55,3 +56,6 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+def collision(a, b):
+    return a.x + a.w > b.x and b.x + b.w > a.x and a.y + a.h > b.y and b.y + b.h > a.y
