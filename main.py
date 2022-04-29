@@ -55,7 +55,7 @@ class App:
             bList = [x for x in self.gameObjects if isinstance(x, each[1])]
             for a in aList:
                 for b in bList:
-                    if collision(a, b):
+                    if a != b and collision(a, b):
                         a.collide(b)
                         b.collide(a)
 
