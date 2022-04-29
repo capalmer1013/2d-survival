@@ -7,6 +7,8 @@ from gameObjects import *
 class App:
     SCREEN_WIDTH = BASE_BLOCK * BLOCK_WIDTH
     SCREEN_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT
+    WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
+    WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
     def __init__(self):
         pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
@@ -19,9 +21,11 @@ class App:
         self.persistentGameObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self.gameObjects, self)
-        self.cursor = Cursor(0, 0)
+        self.cursor = Cursor(0, 0, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
+        self.maxEnemies = 100
+        self.numEnemies = 0
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -31,7 +35,7 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo)]
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health)]
 
         pyxel.run(self.update, self.draw)
 
@@ -55,22 +59,38 @@ class App:
                         a.collide(b)
                         b.collide(a)
 
+    def numType(self, t):
+        return len([x for x in self.gameObjects if isinstance(x, t)])
+
     def spawnEnemies(self):
         if pyxel.frame_count % 12 == 0:
-            tmp = Enemy(pyxel.rndi(0, pyxel.width - ENEMY_WIDTH), pyxel.rndi(0, pyxel.height - ENEMY_HEIGHT), self.player, self)
-            if distance(self.player, tmp) > BASE_BLOCK*4:
-                self.gameObjects.append(tmp)
+            self.numEnemies = self.numType(Enemy)
+            if self.numEnemies < self.maxEnemies:
+                tmp = Enemy(pyxel.rndi(0, self.WORLD_WIDTH - ENEMY_WIDTH), pyxel.rndi(0, self.WORLD_HEIGHT - ENEMY_HEIGHT), self.player, self)
+                if distance(self.player, tmp) > BASE_BLOCK*4:
+                    self.gameObjects.append(tmp)
             pass
 
     def spawnAmmo(self):
         if pyxel.frame_count % 120 == 0:
-            tmp = Ammo(pyxel.rndi(0, pyxel.width - Ammo.w), pyxel.rndi(0, pyxel.height - Ammo.h))
+            tmp = Ammo(pyxel.rndi(0, self.WORLD_WIDTH - Ammo.w), pyxel.rndi(0, self.WORLD_HEIGHT - Ammo.h))
             if distance(self.player, tmp) > BASE_BLOCK * 4:
                 self.gameObjects.append(tmp)
 
+    def spawnHealth(self):
+        if pyxel.frame_count % 240 == 0:
+            tmp = Health(pyxel.rndi(0, self.WORLD_WIDTH - Health.w), pyxel.rndi(0, self.WORLD_HEIGHT - Health.h))
+            if distance(self.player, tmp) > BASE_BLOCK * 4:
+                self.gameObjects.append(tmp)
+
+    def getRelativeXY(self):
+        return self.player.x - self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2
+
     def update_play_scene(self):
+        pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
         self.spawnEnemies()
         self.spawnAmmo()
+        self.spawnHealth()
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
@@ -90,11 +110,13 @@ class App:
             self.gameObjects.append(self.player)
 
     def draw(self):
+        relx, rely = self.getRelativeXY()
         pyxel.cls(0)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
-        pyxel.text(39, 4, f"Ammo: {self.player.ammo}", 7)
-        pyxel.text(39, 16, f"Health: {self.player.health}", 7)
+        pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
+        pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
+        pyxel.text(relx + 39, rely+28, f"#enemies: {self.numEnemies}", 7)
         # pyxel.text(39, 28, f"damage count {self.player.damageCount}", 7)
         # pyxel.text(39, 36, f"cursor x: {self.cursor.x} y: {self.cursor.y}", 7)
 

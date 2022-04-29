@@ -23,6 +23,7 @@ class BaseGameObject:
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
+
 class Point(BaseGameObject):
     def __init__(self, x, y):
         self.x, self.y = x, y
@@ -43,13 +44,14 @@ class Background:
 
     def __init__(self, width, height):
         self.tiles = []  # [[(int, int)]]
-        self.width = width
-        self.height = height
+        self.width = width * WORLD_MULTIPLIER
+        self.height = height * WORLD_MULTIPLIER
+
         opts = (1, -1)
 
-        for _ in range(width):
+        for _ in range(width * WORLD_MULTIPLIER):
             tmp = []
-            for _ in range(height):
+            for _ in range(height * WORLD_MULTIPLIER):
                 tmp.append((random.choice(opts), random.choice(opts)))
             self.tiles.append(tmp)
 
@@ -73,7 +75,7 @@ class Ammo(BaseGameObject):
 
     def __init__(self, x, y):
         super().__init__(x, y)
-        self.ammoAmmount = 100
+        self.ammoAmmount = 10
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -83,6 +85,24 @@ class Ammo(BaseGameObject):
     def update(self):
         pass
 
+
+class Health(BaseGameObject):
+    U = 24
+    V = 32
+    w = 8
+    h = 8
+
+    def __init__(self, x, y, healthAmount=25):
+        super().__init__(x, y)
+        self.healthAmount = healthAmount
+
+    def collide(self, other):
+        if isinstance(other, Player):
+            self.is_alive = False
+            other.heal(self.healthAmount)
+
+    def update(self):
+        pass
 
 
 class Player(BaseGameObject):
@@ -105,8 +125,9 @@ class Player(BaseGameObject):
         self.h = PLAYER_HEIGHT
         self.is_alive = True
         self.gameObjects = gameObjects
+        self.maxHealth = 100
         self.ammo = 100
-        self.health = 100
+        self.health = self.maxHealth
         self.damageCount = 0
 
     def moveControls(self):
@@ -133,9 +154,9 @@ class Player(BaseGameObject):
     def update(self):
         # check for player boundary collision
         self.x = max(self.x, 0)
-        self.x = min(self.x, pyxel.width - self.w)
+        self.x = min(self.x, WORLD_MULTIPLIER * pyxel.width - self.w)
         self.y = max(self.y, 0)
-        self.y = min(self.y, pyxel.height - self.h)
+        self.y = min(self.y, WORLD_MULTIPLIER * pyxel.height - self.h)
 
         # move player
         if self.app.scene == SCENE_PLAY:
@@ -154,6 +175,11 @@ class Player(BaseGameObject):
             self.app.gameObjects.append(Blast(self.x + PLAYER_WIDTH / 2, self.y + PLAYER_HEIGHT / 2, ))
             self.app.scene = SCENE_GAMEOVER
             self.health = 100
+
+    def heal(self, amount):
+        self.health = self.health + amount if self.health + amount <= self.maxHealth else self.maxHealth
+        pyxel.play(0, 7)
+
 
 
     def collide(self, other):
@@ -224,7 +250,7 @@ class Enemy(BaseGameObject):
         self.dirtime = 0
         self.damage = 5
         self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
-
+        self.attackDistance = BASE_BLOCK * 5
     def die(self):
         self.is_alive = False
         self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
@@ -254,9 +280,13 @@ class Enemy(BaseGameObject):
 
     def stateRandomWalk(self):
         if self.stepCount == 0:
-            self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
+            self.randomPoint = Point(random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT))
         elif self.stepCount > 120:
-            return random.choice([self.stateAttack, self.stateInit])
+            self.stepCount = 0
+            return random.choice([self.stateRandomWalk, self.stateInit])
+
+        if distance(self, self.player) < self.attackDistance:
+            return self.stateAttack
 
         self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
         return self.stateRandomWalk
@@ -266,6 +296,9 @@ class Enemy(BaseGameObject):
         if self.stepCount > 240:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateInit, self.stateRandomWalk])
+
+        if distance(self, self.player) > self.attackDistance:
+            return self.stateRandomWalk
 
         return self.stateAttack
 
@@ -280,7 +313,7 @@ class Enemy(BaseGameObject):
 
 
 class Cursor(BaseGameObject):
-    def __init__(self, x, y):
+    def __init__(self, x, y, app):
         super().__init__()
         self.x = x
         self.y = y
@@ -288,10 +321,11 @@ class Cursor(BaseGameObject):
         self.V = 0
         self.W = 16
         self.H = 16
+        self.app = app
 
     def update(self):
-        self.x = pyxel.mouse_x
-        self.y = pyxel.mouse_y
+        self.x = pyxel.mouse_x + (self.app.player.x - self.app.SCREEN_WIDTH/2)
+        self.y = pyxel.mouse_y + (self.app.player.y - self.app.SCREEN_HEIGHT/2)
 
     def draw(self):
         pyxel.blt(self.x-8, self.y-8, 0, self.U, self.V, self.W, self.H, 14)
