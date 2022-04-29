@@ -11,7 +11,6 @@ class BaseGameObject:
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
-        self.w, self.h = (1, 1)
         self.is_alive = True
 
     def collide(self, other):
@@ -21,6 +20,8 @@ class BaseGameObject:
         self.x += (self.x - other.x) * bounceFactor
         self.y += (self.y - other.y) * bounceFactor
 
+    def draw(self):
+        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
 class Point(BaseGameObject):
     def __init__(self, x, y):
@@ -28,6 +29,12 @@ class Point(BaseGameObject):
         self.w, self.h = (10, 10)
     def collide(self, other):
         pass
+
+    def update(self):
+        pass
+    def draw(self):
+        pass
+
 
 
 class Background:
@@ -56,6 +63,26 @@ class Background:
                 pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 
         pass
+
+
+class Ammo(BaseGameObject):
+    U = 16
+    V = 32
+    w = 8
+    h = 8
+
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.ammoAmmount = 100
+
+    def collide(self, other):
+        if isinstance(other, Player):
+            self.is_alive = False
+            other.ammo += self.ammoAmmount
+
+    def update(self):
+        pass
+
 
 
 class Player(BaseGameObject):
@@ -94,11 +121,13 @@ class Player(BaseGameObject):
 
     def shootControls(self):
         # shoot
-        if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-            self.gameObjects.append(Bullet(
-                self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, point=Point(self.app.cursor.x, self.app.cursor.y)
-            ))
-            pyxel.play(0, 1)
+        if self.ammo > 0:
+            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+                self.gameObjects.append(Bullet(
+                    self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, point=Point(self.app.cursor.x, self.app.cursor.y)
+                ))
+                pyxel.play(0, 1)
+                self.ammo -= 1
         pass
 
     def update(self):

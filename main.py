@@ -31,7 +31,7 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        self.collisionList = [(Enemy, Bullet), (Enemy, Player)]
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo)]
 
         pyxel.run(self.update, self.draw)
 
@@ -62,8 +62,15 @@ class App:
                 self.gameObjects.append(tmp)
             pass
 
+    def spawnAmmo(self):
+        if pyxel.frame_count % 120 == 0:
+            tmp = Ammo(pyxel.rndi(0, pyxel.width - Ammo.w), pyxel.rndi(0, pyxel.height - Ammo.h))
+            if distance(self.player, tmp) > BASE_BLOCK * 4:
+                self.gameObjects.append(tmp)
+
     def update_play_scene(self):
         self.spawnEnemies()
+        self.spawnAmmo()
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
@@ -86,13 +93,13 @@ class App:
         pyxel.cls(0)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
-        pyxel.text(39, 4, f"SCORE {self.score:5}", 7)
+        pyxel.text(39, 4, f"Ammo: {self.player.ammo}", 7)
         pyxel.text(39, 16, f"Health: {self.player.health}", 7)
-        pyxel.text(39, 28, f"damage count {self.player.damageCount}", 7)
-        pyxel.text(39, 36, f"cursor x: {self.cursor.x} y: {self.cursor.y}", 7)
+        # pyxel.text(39, 28, f"damage count {self.player.damageCount}", 7)
+        # pyxel.text(39, 36, f"cursor x: {self.cursor.x} y: {self.cursor.y}", 7)
 
     def draw_title_scene(self):
-        pyxel.text(35, 66, "AirStrike Revolved Movement", pyxel.frame_count % 16)
+        pyxel.text(35, 66, "Survival game", pyxel.frame_count % 16)
         pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
     def draw_play_scene(self):
