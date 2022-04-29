@@ -92,7 +92,7 @@ class Health(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, healthAmount=25):
+    def __init__(self, x, y, healthAmount=10):
         super().__init__(x, y)
         self.healthAmount = healthAmount
 
@@ -126,7 +126,7 @@ class Player(BaseGameObject):
         self.is_alive = True
         self.gameObjects = gameObjects
         self.maxHealth = 100
-        self.ammo = 100
+        self.ammo = 50
         self.health = self.maxHealth
         self.damageCount = 0
 
@@ -250,7 +250,9 @@ class Enemy(BaseGameObject):
         self.dirtime = 0
         self.damage = 5
         self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
-        self.attackDistance = BASE_BLOCK * 5
+        self.attackDistance = BASE_BLOCK * 10
+
+
     def die(self):
         self.is_alive = False
         self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
@@ -261,6 +263,8 @@ class Enemy(BaseGameObject):
         if isinstance(other, Bullet):
             self.die()
         if isinstance(other, Player):
+            self.bounceBack(other)
+        if isinstance(other, Enemy):
             self.bounceBack(other)
 
     def debounceDir(self, w, h):
@@ -279,25 +283,29 @@ class Enemy(BaseGameObject):
         return self.stateInit
 
     def stateRandomWalk(self):
-        if self.stepCount == 0:
-            self.randomPoint = Point(random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT))
+        if self.stepCount == 1:
+            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
+            print(randx, ', ', randy)
+            self.randomPoint = Point(randx, randy)
         elif self.stepCount > 120:
             self.stepCount = 0
             return random.choice([self.stateRandomWalk, self.stateInit])
 
         if distance(self, self.player) < self.attackDistance:
+            self.stepCount = 0
             return self.stateAttack
 
         self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
         return self.stateRandomWalk
 
     def stateAttack(self):
-        self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED)
+        self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED*3)
         if self.stepCount > 240:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateInit, self.stateRandomWalk])
 
         if distance(self, self.player) > self.attackDistance:
+            self.stepCount = 0
             return self.stateRandomWalk
 
         return self.stateAttack

@@ -24,7 +24,7 @@ class App:
         self.cursor = Cursor(0, 0, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
-        self.maxEnemies = 100
+        self.maxEnemies = 1000
         self.numEnemies = 0
 
         # config
@@ -35,8 +35,7 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health)]
-
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player, (Enemy, Enemy)]
         pyxel.run(self.update, self.draw)
 
     def update(self):
@@ -72,13 +71,13 @@ class App:
             pass
 
     def spawnAmmo(self):
-        if pyxel.frame_count % 120 == 0:
+        if pyxel.frame_count % 60 == 0:
             tmp = Ammo(pyxel.rndi(0, self.WORLD_WIDTH - Ammo.w), pyxel.rndi(0, self.WORLD_HEIGHT - Ammo.h))
             if distance(self.player, tmp) > BASE_BLOCK * 4:
                 self.gameObjects.append(tmp)
 
     def spawnHealth(self):
-        if pyxel.frame_count % 240 == 0:
+        if pyxel.frame_count % 120 == 0:
             tmp = Health(pyxel.rndi(0, self.WORLD_WIDTH - Health.w), pyxel.rndi(0, self.WORLD_HEIGHT - Health.h))
             if distance(self.player, tmp) > BASE_BLOCK * 4:
                 self.gameObjects.append(tmp)
@@ -122,7 +121,7 @@ class App:
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "Survival game", pyxel.frame_count % 16)
-        pyxel.text(31, 126, "- PRESS ENTER -", 13)
+        #pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
     def draw_play_scene(self):
         draw_list(self.gameObjects)
@@ -132,7 +131,7 @@ class App:
         draw_list(self.gameObjects)
         draw_list(self.persistentGameObjects)
         pyxel.text(43, 66, "GAME OVER", 8)
-        pyxel.text(31, 126, "- PRESS ENTER -", 13)
+        #pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
 
 App()
