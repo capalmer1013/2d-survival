@@ -145,7 +145,7 @@ class App:
         pyxel.text(relx + 39, rely+36, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
-        pyxel.text(35, 66, "Survival game", pyxel.frame_count % 16)
+        pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)
 
     def draw_play_scene(self):
         draw_list(self.gameObjects)
