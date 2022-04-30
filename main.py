@@ -37,23 +37,30 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health), (Enemy, Enemy), (Enemy, Brick), (Player, Brick)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player),
+                              (Player, Ammo), (Player, Health),
+                              (Enemy, Enemy), (Enemy, Brick),
+                              (Player, Brick), (Player, Food),
+                              (Enemy, Food)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
-    def createObject(self, T):
+    def spawnInstance(self, T):
         tmp = T(pyxel.rndi(0, self.WORLD_WIDTH - T.w), pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self.player, self)
         if distance(self.player, tmp) > BASE_BLOCK * 4:
             self.gameObjects.append(tmp)
 
     def initWorld(self):
         for _ in range(100):
-            self.createObject(Enemy)
+            self.spawnInstance(Enemy)
 
         for _ in range(100):
-            self.createObject(Ammo)
+            self.spawnInstance(Ammo)
 
         for _ in range(100):
-            self.createObject(Brick)
+            self.spawnInstance(Brick)
+
+        for _ in range(100):
+            self.spawnInstance(Food)
 
     def update(self):
         if pyxel.btn(pyxel.KEY_Q):
@@ -141,8 +148,9 @@ class App:
         self.sceneDrawDict[self.scene]()
         pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
         pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
-        pyxel.text(relx + 39, rely+28, f"enemies: {self.numEnemies}", 7)
-        pyxel.text(relx + 39, rely+36, f"bricks: {self.player.bricks}", 7)
+        pyxel.text(relx+39, rely+28, f"Hunger: {self.player.hunger}", 7)
+        pyxel.text(relx + 39, rely+36, f"enemies: {self.numEnemies}", 7)
+        pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)

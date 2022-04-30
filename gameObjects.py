@@ -19,7 +19,7 @@ class GameObjectContainer:
         self.GRID[x][y].append(elem)
         self.gameList.append(elem)
 
-    def getNearbyElements(self, elem):
+    def getNearbyElements(self, elem):  # todo: rename to more general ie. getCollisionCandidates
         x, y = self.gridCoord(elem)
         lenx, leny = len(self.GRID), len(self.GRID[x])
         # currently checks up and down adjacent. not diagonal todo: maybe add that... maybe
@@ -76,6 +76,25 @@ class BaseGameObject:
 
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+
+
+class Creature(BaseGameObject):
+    def __init__(self, x=0, y=0):
+        super().__init__(x, y)
+    pass
+
+
+class Item(BaseGameObject):
+    pass
+
+
+# these can both probably inheret from something
+class Scene:
+    pass
+
+
+class StateMachine:
+    pass
 
 
 class Point(BaseGameObject):
@@ -182,6 +201,23 @@ class Brick(BaseGameObject):
         self.app.score += score
 
 
+class Food(BaseGameObject):
+    U = 16
+    V = 40
+    w = 8
+    h = 8
+
+    def __init__(self, x, y, *args, **kwargs):
+        super().__init__(x, y)
+        self.amount = 50
+
+    def collide(self, other):
+        self.is_alive = False
+
+    def update(self):
+        pass
+
+
 class Health(BaseGameObject):
     U = 24
     V = 32
@@ -201,7 +237,7 @@ class Health(BaseGameObject):
         pass
 
 
-class Player(BaseGameObject):
+class Player(Creature):
     U = 32
     V = 16
     MOVE_LEFT_KEY = pyxel.KEY_A
@@ -226,7 +262,9 @@ class Player(BaseGameObject):
         self.ammo = 10
         self.bricks = 0
         self.health = self.maxHealth
+        self.hunger, self.maxHunger = (100, 100)
         self.damageCount = 0
+        self.hungerCount = 0
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
@@ -255,6 +293,11 @@ class Player(BaseGameObject):
         pass
 
     def update(self):
+        if self.hunger <= 0:
+            HUNGER_MULTIPLIER = 0.1
+            self.health += self.hungerCount*HUNGER_MULTIPLIER
+        if self.health <= 0:
+            self.die(sound=True)
         self.moved = False
         # check for player boundary collision
         self.x = max(self.x, 0)
@@ -267,15 +310,26 @@ class Player(BaseGameObject):
             self.moveControls()
             self.shootControls()
 
+        self.hungerCount += 1
+
+        if self.hungerCount > 3600 and self.hungerCount % 240 == 0: # after 2 minutes of not eating lose 1 point of hunger every 8 seconds
+            self.hunger -= 1
+
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+
+    def die(self, sound=True, score=0):
+        self.is_alive = False
+        self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
+        if sound:
+            pyxel.play(1, 2)  # todo: distance from player affect volume level
+        self.app.score += score
 
     def takeDamage(self, amount):
         self.health -= amount
         pyxel.play(0, 6)
         if self.health <= 0:
             self.is_alive = False
-            # self.is_alive = False
             pyxel.play(0, 0)
             self.app.gameObjects.append(Blast(self.x + PLAYER_WIDTH / 2, self.y + PLAYER_HEIGHT / 2, ))
             self.app.scene = SCENE_GAMEOVER
@@ -285,16 +339,25 @@ class Player(BaseGameObject):
         self.health = self.health + amount if self.health + amount <= self.maxHealth else self.maxHealth
         pyxel.play(0, 7)
 
+    def eat(self, amount):
+        self.hunger += amount
+        self.hungerCount = 0
+        if self.hunger > self.maxHunger:
+            self.hunger = self.maxHunger
+
     def collide(self, other):
         if isinstance(other, Enemy):
             self.takeDamage(other.damage)
             self.bounceBack(other)
+
         if isinstance(other, Brick):
             if not other.placed:
                 self.bricks += other.amount
                 other.is_alive = False
             else:
                 self.bounceBack(other)
+        if isinstance(other, Food):
+            self.eat(other.amount)
 
 
 class Bullet(BaseGameObject):
@@ -345,7 +408,7 @@ class Bullet(BaseGameObject):
         self.is_alive = False
 
 
-class Enemy(BaseGameObject):
+class Enemy(Creature):
     # U = 0
     # V = 16
     w = ENEMY_WIDTH
@@ -367,11 +430,12 @@ class Enemy(BaseGameObject):
         self.state = self.stateInit
         self.dirtime = 0
         self.damage = 5
-        self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
+        self.targetPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
         self.attackDistance = BASE_BLOCK * 10
-        self.hunger = 100
+        self.hunger, self.maxHunger = (100, 100)
         self.hungerCount = 0
         self.health = 100
+        self.hungerStateLevel = 3
 
     def die(self, sound=True, score=0):
         self.is_alive = False
@@ -380,8 +444,16 @@ class Enemy(BaseGameObject):
             pyxel.play(1, 2)  # todo: distance from player affect volume level
         self.app.score += score
 
-    def takeDamage(self, amount):
-        pyxel.play(0, 6)
+    def eat(self, amount):
+        self.hunger += amount
+        self.hungerCount = 0
+        self.targetPoint = None
+        if self.hunger > self.maxHunger:
+            self.hunger = self.maxHunger
+
+    def takeDamage(self, amount, sound=True):
+        if sound:
+            pyxel.play(0, 6)
         self.health -= amount
         if self.health <= 0:
             self.die(score=10)
@@ -397,6 +469,9 @@ class Enemy(BaseGameObject):
             if other.placed:
                 other.takeDamage(1)
                 self.bounceBack(other)
+        if isinstance(other, Food):
+            self.eat(other.amount)
+            self.targetPoint = None
 
     def debounceDir(self, w, h):
         if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
@@ -414,25 +489,49 @@ class Enemy(BaseGameObject):
             return random.choice([self.stateAttack, self.stateRandomWalk])
         return self.stateInit
 
+    def stateLookForFood(self):
+        if self.hunger > self.hungerStateLevel:
+            if self.hunger >= self.maxHunger:
+                return self.stateInit
+            else:
+                return random.choice([self.stateRandomWalk, self.stateLookForFood])
+        nearbyFood = sorted([x for x in self.app.gameObjects.getNearbyElements(self) if isinstance(x, Food)], key=lambda x: distance(self, x))
+        if nearbyFood:
+            self.stepTowardPoint(nearbyFood[0])
+        else:
+            self.stateRandomWalk()
+        return self.stateLookForFood
+
+    # use this method in other places when stepping toward random point
+    def stepTowardPoint(self, pnt=None):
+        if not pnt or not self.targetPoint:
+            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
+            self.targetPoint = Point(randx, randy)
+        else:
+            self.targetPoint = pnt
+        self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
+
     def stateRandomWalk(self):
         self.moved = True
-        if self.stepCount == 1:
+        if not self.targetPoint:
             randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
-            self.randomPoint = Point(randx, randy)
-        elif self.stepCount > 120:
+            self.targetPoint = Point(randx, randy)
+        if self.stepCount % 120 == 0:
             self.stepCount = 0
-            return random.choice([self.stateRandomWalk, self.stateInit])
+            self.targetPoint = None
+            return random.choice([self.stateRandomWalk, self.stateInit, self.stateLookForFood])
 
-        if distance(self, self.player) < self.attackDistance and self.player.is_alive:
-            self.stepCount = 0
-            return self.stateAttack
-
-        self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
+        self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
         self.app.gameObjects.updateObject(self)
+        if self.player in self.app.gameObjects.getNearbyElements(self):
+            if distance(self, self.player) < self.attackDistance and self.player.is_alive:
+                self.stepCount = 0
+                return self.stateAttack
         return self.stateRandomWalk
 
     def stateAttack(self):
         self.moved = True
+        self.hunger -= 0.1
         if not self.player.is_alive:
             return self.stateRandomWalk
         self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED*3)
@@ -449,9 +548,13 @@ class Enemy(BaseGameObject):
 
     def update(self):
         if self.hunger <= 0:
-            self.die(sound=False)
+            if self.stepCount % 30 == 0:
+                self.takeDamage(1, sound=False)
         self.moved = False
-        self.state = self.state()
+        if self.hunger < self.hungerStateLevel:
+            self.state = self.stateLookForFood()
+        else:
+            self.state = self.state()
         self.stepCount += 1
         self.hungerCount += 1
         if self.hungerCount > 100 and self.hungerCount % 30 == 0:
