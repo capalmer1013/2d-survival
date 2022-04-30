@@ -60,12 +60,17 @@ class GameObjectContainer:
 
 
 class BaseGameObject:
-    def __init__(self, x=0, y=0):
+    def __init__(self, x, y, player, app):
         self.x = x
         self.y = y
+        self.player = player
+        self.app = app
         self.is_alive = True
         self.moved = False
         self.gridCoord = (0, 0)
+
+    def nearPlayer(self):
+        return self in self.app.gameObjects.getNearbyElements(self.app.player)
 
     def collide(self, other):
         raise NotImplementedError
@@ -83,7 +88,7 @@ class Creature(BaseGameObject):
     V = 0
 
     def __init__(self, x, y, player, app, damage=5, maxHunger=100, deathClass=None):
-        super().__init__(x, y)
+        super().__init__(x, y, player, app)
         self.w = BASE_BLOCK
         self.h = BASE_BLOCK
         self.HUNGER_MULTIPLIER = -0.1
@@ -98,6 +103,7 @@ class Creature(BaseGameObject):
         self.player = player
         self.app = app
         self.targetPoint = None
+        self.dieSound, self.damageSound = False, False
 
     def debounceDir(self, w, h):
         if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
@@ -106,17 +112,17 @@ class Creature(BaseGameObject):
             self.dirtime = 0
         self.dirtime += 1
 
-    def takeDamage(self, amount, sound=True):
-        if sound:
+    def takeDamage(self, amount):
+        if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
             pyxel.play(0, 6)
         self.health -= amount
         if self.health <= 0:
             self.die()
 
-    def die(self, sound=True):
+    def die(self):
         self.is_alive = False
         self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2))
-        if sound:
+        if self.dieSound:
             pyxel.play(1, 2)  # todo: distance from player affect volume level
 
     def eat(self, amount):
@@ -201,8 +207,8 @@ class Ammo(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, *args, **wkargs):
-        super().__init__(x, y)
+    def __init__(self, x, y, player, app):
+        super().__init__(x, y, player, app)
         self.ammoAmmount = 10
 
     def collide(self, other):
@@ -220,13 +226,13 @@ class Brick(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, gameObjects, app, placed = False):
-        super().__init__(x, y)
+    def __init__(self, x, y, player, app, placed=False):
+        super().__init__(x, y, player, app)
         self.app = app
-        self.gameObjects = gameObjects
         self.placed = placed
         self.amount = 10
         self.health = 100
+        self.damageSound, self.dieSound = True, True
 
     def collide(self, other):
         pass
@@ -234,11 +240,12 @@ class Brick(BaseGameObject):
     def takeDamage(self, amount):
         if self.placed:
             self.health -= amount
-            pyxel.play(0, 8)
+            if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
+                pyxel.play(0, 8)
 
     def update(self):
         if self.health <= 0:
-            self.die()
+            self.die(True)
 
     def draw(self):
         if self.placed:
@@ -247,11 +254,11 @@ class Brick(BaseGameObject):
             if pyxel.frame_count % 3 != 0:
                 super().draw()
 
-    def die(self, sound=True, score=0):
+    def die(self, sound=False, score=0):
         self.is_alive = False
         self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
         if sound:
-            pyxel.play(1, 2)  # todo: distance from player affect volume level
+            pyxel.play(1, 2)
         self.app.score += score
 
 
@@ -261,8 +268,8 @@ class Food(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, *args, **kwargs):
-        super().__init__(x, y)
+    def __init__(self, x, y, player, app):
+        super().__init__(x, y, player, app)
         self.amount = 50
 
     def collide(self, other):
@@ -278,8 +285,8 @@ class Health(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, healthAmount=10):
-        super().__init__(x, y)
+    def __init__(self, x, y, player, app, healthAmount=10):
+        super().__init__(x, y, player, app)
         self.healthAmount = healthAmount
 
     def collide(self, other):
@@ -309,6 +316,7 @@ class Player(Creature):
         self.hunger, self.maxHunger = (100, 100)
         self.damageCount = 0
         self.hungerCount = 0
+        self.dieSound, self.damageSound = True, True
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
@@ -326,7 +334,7 @@ class Player(Creature):
         if self.ammo > 0:
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
                 self.app.gameObjects.append(Bullet(
-                    self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, point=Point(self.app.cursor.x, self.app.cursor.y)
+                    self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, self, self.app, point=Point(self.app.cursor.x, self.app.cursor.y)
                 ))
                 pyxel.play(0, 1)
                 self.ammo -= 1
@@ -340,7 +348,7 @@ class Player(Creature):
             HUNGER_MULTIPLIER = 0.1
             self.health += self.hungerCount*HUNGER_MULTIPLIER
         if self.health <= 0:
-            self.die(sound=True)
+            self.die()
         self.moved = False
         # check for player boundary collision
         self.x = max(self.x, 0)
@@ -388,8 +396,8 @@ class Bullet(BaseGameObject):
     w = BULLET_WIDTH
     h = BULLET_HEIGHT
 
-    def __init__(self, x, y, dir=None, point=None, *args, **kwargs):
-        super().__init__(x, y)
+    def __init__(self, x, y, player, app, dir=None, point=None, *args, **kwargs):
+        super().__init__(x, y, player, app)
         global BULLETS_FIRED # generalize this to count all instances
         BULLETS_FIRED += 1
         if not dir and not point:
@@ -430,6 +438,9 @@ class Bullet(BaseGameObject):
 
     def collide(self, other):
         self.is_alive = False
+        if isinstance(other, Creature):
+            pyxel.play(0, 6)
+
 
 
 class Enemy(Creature):
@@ -442,7 +453,7 @@ class Enemy(Creature):
         self.timer_offset = pyxel.rndi(0, 59)
         self.stepCount = 0
         self.state = self.stateInit
-        self.targetPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
+        self.targetPoint = Point(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
         self.attackDistance = BASE_BLOCK * 10
         self.hungerStateLevel = 3
 
@@ -528,7 +539,7 @@ class Enemy(Creature):
     def update(self):
         if self.hunger <= 0:
             if self.stepCount % 30 == 0:
-                self.takeDamage(1, sound=False)
+                self.takeDamage(1)
         self.moved = False
         if self.hunger < self.hungerStateLevel:
             self.state = self.stateLookForFood()
@@ -541,8 +552,8 @@ class Enemy(Creature):
 
 
 class Cursor(BaseGameObject):
-    def __init__(self, x, y, app):
-        super().__init__()
+    def __init__(self, x, y, player, app):
+        super().__init__(x, y, player, app)
         self.x = x
         self.y = y
         self.U = 48

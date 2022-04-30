@@ -21,7 +21,7 @@ class App:
         self.persistentGameObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self.gameObjects, self)
-        self.cursor = Cursor(0, 0, self)
+        self.cursor = Cursor(0, 0, self.player, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
         self.maxEnemies = 100
@@ -81,34 +81,6 @@ class App:
     def numType(self, t):
         return len([x for x in self.gameObjects if isinstance(x, t)])
 
-    # todo: generalize this spawn function
-    def spawnEnemies(self):
-        if pyxel.frame_count % 60 == 0:
-            self.numEnemies += 1
-            tmp = Enemy(pyxel.rndi(0, self.WORLD_WIDTH - ENEMY_WIDTH), pyxel.rndi(0, self.WORLD_HEIGHT - ENEMY_HEIGHT), self.player, self)
-            if distance(self.player, tmp) > BASE_BLOCK*4:
-                self.gameObjects.append(tmp)
-            pass
-
-    def spawnAmmo(self):
-        if pyxel.frame_count % 60 == 0:
-            tmp = Ammo(pyxel.rndi(0, self.WORLD_WIDTH - Ammo.w), pyxel.rndi(0, self.WORLD_HEIGHT - Ammo.h))
-            if distance(self.player, tmp) > BASE_BLOCK * 4:
-                self.gameObjects.append(tmp)
-
-    def spawnHealth(self):
-        if pyxel.frame_count % 120 == 0:
-            tmp = Health(pyxel.rndi(0, self.WORLD_WIDTH - Health.w), pyxel.rndi(0, self.WORLD_HEIGHT - Health.h))
-            if distance(self.player, tmp) > BASE_BLOCK * 4:
-                self.gameObjects.append(tmp)
-
-    def spawnBricks(self):
-        if pyxel.frame_count % 120 == 0:
-            tmp = Brick(pyxel.rndi(0, self.WORLD_WIDTH - Brick.w), pyxel.rndi(0, self.WORLD_HEIGHT - Brick.h), self.gameObjects, self)
-            if distance(self.player, tmp) > BASE_BLOCK * 4:
-                self.gameObjects.append(tmp)
-                self.numBricks += 1
-
     def getRelativeXY(self):
         return self.player.x - self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2
 
@@ -119,10 +91,10 @@ class App:
 
     def update_play_scene(self):
         pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
-        self.spawnEnemies()
-        self.spawnAmmo()
-        self.spawnHealth()
-        self.spawnBricks()
+        if pyxel.frame_count % 60 == 0: self.spawnInstance(Enemy)
+        if pyxel.frame_count % 60 == 0: self.spawnInstance(Ammo)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
+        if pyxel.frame_count % 120 == 0: self.spawnInstance(Brick)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
