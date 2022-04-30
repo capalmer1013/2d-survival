@@ -1,5 +1,4 @@
 import random
-import pyxel
 from constants import *
 from utils import *
 
@@ -7,11 +6,66 @@ from utils import *
 BULLETS_FIRED = 0
 
 
+class GameObjectContainer:
+    def __init__(self, app):
+        self.app = app
+        self.gameList = []
+        self.GRID = [[[] for _ in range(self.app.SCREEN_HEIGHT)] for _ in range(self.app.SCREEN_WIDTH)]
+        self.n = 0
+
+    def append(self, elem):
+        x, y = self.gridCoord(elem)
+        elem.gridCoord = (x, y)
+        self.GRID[x][y].append(elem)
+        self.gameList.append(elem)
+
+    def getNearbyElements(self, elem):
+        x, y = self.gridCoord(elem)
+        lenx, leny = len(self.GRID), len(self.GRID[x])
+        # currently checks up and down adjacent. not diagonal todo: maybe add that... maybe
+        return self.GRID[x][y] + self.GRID[x-1][y] + self.GRID[x+1%lenx][y] + self.GRID[x][y-1] + self.GRID[x][y+1%leny]
+
+    def gridCoord(self, elem):
+        return int(elem.x/self.app.SCREEN_WIDTH), int(elem.y/self.app.SCREEN_HEIGHT)
+
+    def updateObject(self, elem):
+        x, y = self.gridCoord(elem)
+        if elem not in self.GRID[x][y]:
+            self.GRID[x][y].append(elem)
+            oldx, oldy = elem.gridCoord
+            self.GRID[oldx][oldy].remove(elem)
+            elem.gridCoord = (x, y)
+
+    def pop(self, i=None):
+        x, y = self.gameList[i].gridCoord
+        self.GRID[x][y].remove(self.gameList[i])
+        return self.gameList.pop(i)
+
+    def __len__(self):
+        return len(self.gameList)
+
+    def __getitem__(self, item):
+        return self.gameList[item]
+
+    def __iter__(self):
+        self.n = 0
+        return iter(self.gameList)
+
+    def __next__(self):
+        result = self.gameList[self.n]
+        return result
+
+    def clear(self):
+        self.gameList.clear()
+
+
 class BaseGameObject:
     def __init__(self, x=0, y=0):
         self.x = x
         self.y = y
         self.is_alive = True
+        self.moved = False
+        self.gridCoord = (0, 0)
 
     def collide(self, other):
         raise NotImplementedError
@@ -28,14 +82,15 @@ class Point(BaseGameObject):
     def __init__(self, x, y):
         self.x, self.y = x, y
         self.w, self.h = (10, 10)
+
     def collide(self, other):
         pass
 
     def update(self):
         pass
+
     def draw(self):
         pass
-
 
 
 class Background:
@@ -73,7 +128,7 @@ class Ammo(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y):
+    def __init__(self, x, y, *args, **wkargs):
         super().__init__(x, y)
         self.ammoAmmount = 10
 
@@ -84,6 +139,47 @@ class Ammo(BaseGameObject):
 
     def update(self):
         pass
+
+
+class Brick(BaseGameObject):
+    U = 24
+    V = 40
+    w = 8
+    h = 8
+
+    def __init__(self, x, y, gameObjects, app, placed = False):
+        super().__init__(x, y)
+        self.app = app
+        self.gameObjects = gameObjects
+        self.placed = placed
+        self.amount = 10
+        self.health = 100
+
+    def collide(self, other):
+        pass
+
+    def takeDamage(self, amount):
+        if self.placed:
+            self.health -= amount
+            pyxel.play(0, 8)
+
+    def update(self):
+        if self.health <= 0:
+            self.die()
+
+    def draw(self):
+        if self.placed:
+            super().draw()
+        else:
+            if pyxel.frame_count % 3 != 0:
+                super().draw()
+
+    def die(self, sound=True, score=0):
+        self.is_alive = False
+        self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
+        if sound:
+            pyxel.play(1, 2)  # todo: distance from player affect volume level
+        self.app.score += score
 
 
 class Health(BaseGameObject):
@@ -118,6 +214,7 @@ class Player(BaseGameObject):
     # MOVE_DOWN_KEY = pyxel.KEY_DOWN
 
     def __init__(self, x, y, gameObjects, app):
+        super().__init__(x, y)
         self.app = app
         self.x = x
         self.y = y
@@ -126,7 +223,8 @@ class Player(BaseGameObject):
         self.is_alive = True
         self.gameObjects = gameObjects
         self.maxHealth = 100
-        self.ammo = 50
+        self.ammo = 10
+        self.bricks = 0
         self.health = self.maxHealth
         self.damageCount = 0
 
@@ -139,6 +237,7 @@ class Player(BaseGameObject):
             self.y -= PLAYER_SPEED
         if pyxel.btn(self.MOVE_DOWN_KEY):
             self.y += PLAYER_SPEED
+        self.app.gameObjects.updateObject(self)
 
     def shootControls(self):
         # shoot
@@ -149,9 +248,14 @@ class Player(BaseGameObject):
                 ))
                 pyxel.play(0, 1)
                 self.ammo -= 1
+        if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
+            if self.bricks > 0:
+                self.gameObjects.append(Brick(self.app.cursor.x, self.app.cursor.y, self.gameObjects, self.app, placed=True))
+                self.bricks -= 1
         pass
 
     def update(self):
+        self.moved = False
         # check for player boundary collision
         self.x = max(self.x, 0)
         self.x = min(self.x, WORLD_MULTIPLIER * pyxel.width - self.w)
@@ -170,6 +274,7 @@ class Player(BaseGameObject):
         self.health -= amount
         pyxel.play(0, 6)
         if self.health <= 0:
+            self.is_alive = False
             # self.is_alive = False
             pyxel.play(0, 0)
             self.app.gameObjects.append(Blast(self.x + PLAYER_WIDTH / 2, self.y + PLAYER_HEIGHT / 2, ))
@@ -180,16 +285,24 @@ class Player(BaseGameObject):
         self.health = self.health + amount if self.health + amount <= self.maxHealth else self.maxHealth
         pyxel.play(0, 7)
 
-
-
     def collide(self, other):
         if isinstance(other, Enemy):
             self.takeDamage(other.damage)
             self.bounceBack(other)
+        if isinstance(other, Brick):
+            if not other.placed:
+                self.bricks += other.amount
+                other.is_alive = False
+            else:
+                self.bounceBack(other)
 
 
-class Bullet:
-    def __init__(self, x, y, dir=None, point=None):
+class Bullet(BaseGameObject):
+    w = BULLET_WIDTH
+    h = BULLET_HEIGHT
+
+    def __init__(self, x, y, dir=None, point=None, *args, **kwargs):
+        super().__init__(x, y)
         global BULLETS_FIRED # generalize this to count all instances
         BULLETS_FIRED += 1
         if not dir and not point:
@@ -209,8 +322,10 @@ class Bullet:
         self.distance = 0
         self.current_speed = BULLET_SPEED
         self.minSpeed = 5
+        self.damage = 25
 
     def update(self):
+        self.moved = True
         if self.dir:
             self.x, self.y = self.x + self.current_speed*self.dirDict[self.dir][0], self.y + self.current_speed *self.dirDict[self.dir][1]
         if self.point:
@@ -233,8 +348,11 @@ class Bullet:
 class Enemy(BaseGameObject):
     # U = 0
     # V = 16
+    w = ENEMY_WIDTH
+    h = ENEMY_HEIGHT
 
     def __init__(self, x, y, player, app):
+        super().__init__(x, y)
         self.U, self.V = (random.choice([(32, 16), (48, 16), (48, 32), (48, 48)]))
         self.x = x
         self.y = y
@@ -251,21 +369,34 @@ class Enemy(BaseGameObject):
         self.damage = 5
         self.randomPoint = BaseGameObject(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
         self.attackDistance = BASE_BLOCK * 10
+        self.hunger = 100
+        self.hungerCount = 0
+        self.health = 100
 
-
-    def die(self):
+    def die(self, sound=True, score=0):
         self.is_alive = False
         self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
-        pyxel.play(1, 2)  # todo: distance from player affect volume level
-        self.app.score += 10
+        if sound:
+            pyxel.play(1, 2)  # todo: distance from player affect volume level
+        self.app.score += score
+
+    def takeDamage(self, amount):
+        pyxel.play(0, 6)
+        self.health -= amount
+        if self.health <= 0:
+            self.die(score=10)
 
     def collide(self, other):
         if isinstance(other, Bullet):
-            self.die()
+            self.takeDamage(other.damage)
         if isinstance(other, Player):
             self.bounceBack(other)
         if isinstance(other, Enemy):
             self.bounceBack(other)
+        if isinstance(other, Brick):
+            if other.placed:
+                other.takeDamage(1)
+                self.bounceBack(other)
 
     def debounceDir(self, w, h):
         if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
@@ -277,29 +408,35 @@ class Enemy(BaseGameObject):
         pass
 
     def stateInit(self):
+        self.moved = False
         if self.stepCount > 30:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateRandomWalk])
         return self.stateInit
 
     def stateRandomWalk(self):
+        self.moved = True
         if self.stepCount == 1:
             randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
-            print(randx, ', ', randy)
             self.randomPoint = Point(randx, randy)
         elif self.stepCount > 120:
             self.stepCount = 0
             return random.choice([self.stateRandomWalk, self.stateInit])
 
-        if distance(self, self.player) < self.attackDistance:
+        if distance(self, self.player) < self.attackDistance and self.player.is_alive:
             self.stepCount = 0
             return self.stateAttack
 
         self.x, self.y, _, _ = stepToward(self.randomPoint, self, ENEMY_SPEED)
+        self.app.gameObjects.updateObject(self)
         return self.stateRandomWalk
 
     def stateAttack(self):
+        self.moved = True
+        if not self.player.is_alive:
+            return self.stateRandomWalk
         self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED*3)
+        self.app.gameObjects.updateObject(self)
         if self.stepCount > 240:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateInit, self.stateRandomWalk])
@@ -311,8 +448,14 @@ class Enemy(BaseGameObject):
         return self.stateAttack
 
     def update(self):
+        if self.hunger <= 0:
+            self.die(sound=False)
+        self.moved = False
         self.state = self.state()
         self.stepCount += 1
+        self.hungerCount += 1
+        if self.hungerCount > 100 and self.hungerCount % 30 == 0:
+            self.hunger -= 1
 
         pass
 

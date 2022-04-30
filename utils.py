@@ -25,7 +25,7 @@ def cleanup_list(list):
 
 
 def distance(a, b):
-    return math.sqrt(abs(a.x - b.x)**2 + abs(a.y - b.y)**2)
+    return math.sqrt(abs(a.x+(a.w/2) - b.x+(b.w/2))**2 + abs(a.y+(a.h/2) - b.y+(b.h/2))**2)
 
 
 def stepToward(destObj, curObj, speed):

@@ -17,15 +17,17 @@ class App:
         #pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE
         self.score = 0
-        self.gameObjects = []
+        self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self.gameObjects, self)
         self.cursor = Cursor(0, 0, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
-        self.maxEnemies = 1000
+        self.maxEnemies = 100
         self.numEnemies = 0
+        self.numBricks = 0
+
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -35,8 +37,23 @@ class App:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player, (Enemy, Enemy)]
+        self.collisionList = [(Enemy, Bullet), (Enemy, Player), (Player, Ammo), (Player, Health), (Enemy, Enemy), (Enemy, Brick), (Player, Brick)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
+
+    def createObject(self, T):
+        tmp = T(pyxel.rndi(0, self.WORLD_WIDTH - T.w), pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self.player, self)
+        if distance(self.player, tmp) > BASE_BLOCK * 4:
+            self.gameObjects.append(tmp)
+
+    def initWorld(self):
+        for _ in range(100):
+            self.createObject(Enemy)
+
+        for _ in range(100):
+            self.createObject(Ammo)
+
+        for _ in range(100):
+            self.createObject(Brick)
 
     def update(self):
         if pyxel.btn(pyxel.KEY_Q):
@@ -44,15 +61,11 @@ class App:
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
-    def update_title_scene(self):
-        if pyxel.btnp(pyxel.KEY_RETURN):
-            self.scene = SCENE_PLAY
-
     def collisionDetection(self):
         for each in self.collisionList:
             aList = [x for x in self.gameObjects if isinstance(x, each[0])]
-            bList = [x for x in self.gameObjects if isinstance(x, each[1])]
             for a in aList:
+                bList = [x for x in self.gameObjects.getNearbyElements(a) if isinstance(x, each[1])]
                 for b in bList:
                     if a != b and collision(a, b):
                         a.collide(b)
@@ -61,13 +74,13 @@ class App:
     def numType(self, t):
         return len([x for x in self.gameObjects if isinstance(x, t)])
 
+    # todo: generalize this spawn function
     def spawnEnemies(self):
-        if pyxel.frame_count % 12 == 0:
-            self.numEnemies = self.numType(Enemy)
-            if self.numEnemies < self.maxEnemies:
-                tmp = Enemy(pyxel.rndi(0, self.WORLD_WIDTH - ENEMY_WIDTH), pyxel.rndi(0, self.WORLD_HEIGHT - ENEMY_HEIGHT), self.player, self)
-                if distance(self.player, tmp) > BASE_BLOCK*4:
-                    self.gameObjects.append(tmp)
+        if pyxel.frame_count % 60 == 0:
+            self.numEnemies += 1
+            tmp = Enemy(pyxel.rndi(0, self.WORLD_WIDTH - ENEMY_WIDTH), pyxel.rndi(0, self.WORLD_HEIGHT - ENEMY_HEIGHT), self.player, self)
+            if distance(self.player, tmp) > BASE_BLOCK*4:
+                self.gameObjects.append(tmp)
             pass
 
     def spawnAmmo(self):
@@ -82,14 +95,27 @@ class App:
             if distance(self.player, tmp) > BASE_BLOCK * 4:
                 self.gameObjects.append(tmp)
 
+    def spawnBricks(self):
+        if pyxel.frame_count % 120 == 0:
+            tmp = Brick(pyxel.rndi(0, self.WORLD_WIDTH - Brick.w), pyxel.rndi(0, self.WORLD_HEIGHT - Brick.h), self.gameObjects, self)
+            if distance(self.player, tmp) > BASE_BLOCK * 4:
+                self.gameObjects.append(tmp)
+                self.numBricks += 1
+
     def getRelativeXY(self):
         return self.player.x - self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2
+
+    def update_title_scene(self):
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            self.initWorld()
+            self.scene = SCENE_PLAY
 
     def update_play_scene(self):
         pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
         self.spawnEnemies()
         self.spawnAmmo()
         self.spawnHealth()
+        self.spawnBricks()
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
@@ -115,13 +141,11 @@ class App:
         self.sceneDrawDict[self.scene]()
         pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
         pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
-        pyxel.text(relx + 39, rely+28, f"#enemies: {self.numEnemies}", 7)
-        # pyxel.text(39, 28, f"damage count {self.player.damageCount}", 7)
-        # pyxel.text(39, 36, f"cursor x: {self.cursor.x} y: {self.cursor.y}", 7)
+        pyxel.text(relx + 39, rely+28, f"enemies: {self.numEnemies}", 7)
+        pyxel.text(relx + 39, rely+36, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "Survival game", pyxel.frame_count % 16)
-        #pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
     def draw_play_scene(self):
         draw_list(self.gameObjects)
@@ -131,7 +155,6 @@ class App:
         draw_list(self.gameObjects)
         draw_list(self.persistentGameObjects)
         pyxel.text(43, 66, "GAME OVER", 8)
-        #pyxel.text(31, 126, "- PRESS ENTER -", 13)
 
 
 App()
