@@ -1,3 +1,4 @@
+import cProfile
 import pyxel
 from constants import *
 from utils import *
@@ -11,8 +12,9 @@ class App:
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
     def __init__(self):
-        pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
-        pyxel.load(resource_path("assets.pyxres"))
+        if not HEADLESS:
+            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
+            pyxel.load(resource_path("assets.pyxres"))
         #pyxel.sound(1).set("a3a2c1a1", "p", "7", "s", 5)
         #pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE
@@ -63,8 +65,8 @@ class App:
             self.spawnInstance(Food)
 
     def update(self):
-        if pyxel.btn(pyxel.KEY_Q):
-            pyxel.quit()
+        # if pyxel.btn(pyxel.KEY_Q):
+        #     pyxel.quit()
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
@@ -138,3 +140,4 @@ class App:
 
 
 App()
+print('after')

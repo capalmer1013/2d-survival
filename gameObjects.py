@@ -2,7 +2,6 @@ import random
 from constants import *
 from utils import *
 
-
 BULLETS_FIRED = 0
 
 
@@ -10,7 +9,8 @@ class GameObjectContainer:
     def __init__(self, app):
         self.app = app
         self.gameList = []
-        self.GRID = [[[] for _ in range(self.app.SCREEN_HEIGHT)] for _ in range(self.app.SCREEN_WIDTH)]
+        self.gridw, self.gridh = self.app.SCREEN_WIDTH//2, self.app.SCREEN_HEIGHT//2
+        self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
         self.n = 0
 
     def append(self, elem):
@@ -26,7 +26,7 @@ class GameObjectContainer:
         return self.GRID[x][y] + self.GRID[x-1][y] + self.GRID[x+1%lenx][y] + self.GRID[x][y-1] + self.GRID[x][y+1%leny]
 
     def gridCoord(self, elem):
-        return int(elem.x/self.app.SCREEN_WIDTH), int(elem.y/self.app.SCREEN_HEIGHT)
+        return int(elem.x/self.gridw), int(elem.y/self.gridh)
 
     def updateObject(self, elem):
         x, y = self.gridCoord(elem)
@@ -83,6 +83,7 @@ class BaseGameObject:
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
 
+# make abstract class probably
 class Creature(BaseGameObject):
     U = 16
     V = 0
@@ -99,7 +100,7 @@ class Creature(BaseGameObject):
         self.damage = damage
         self.deathClass = deathClass if deathClass else Blast
         self.hunger, self.maxHunger = (maxHunger, maxHunger)
-        self.hungerCount = 3600
+        self.hungerCount = 0
         self.player = player
         self.app = app
         self.targetPoint = None
@@ -126,7 +127,7 @@ class Creature(BaseGameObject):
             pyxel.play(1, 2)  # todo: distance from player affect volume level
 
     def eat(self, amount):
-        self.hungerCount = self.maxHunger
+        self.hungerCount = 0
         self.targetPoint = None
         self.hunger = self.hunger + amount if self.hunger + amount <= self.maxHunger else self.maxHunger
         self.heal(amount // 2, False)
@@ -137,10 +138,11 @@ class Creature(BaseGameObject):
 
     def hungerUpdate(self):
         self.hungerCount += 1
-        self.hunger -= 1
-        if self.hungerCount < 3600:
-            if self.hunger <= 0:
-                self.takeDamage(self.hunger*self.HUNGER_MULTIPLIER, False)
+        if self.hungerCount > 3600:
+            if self.hungerCount % 240 == 0:
+                self.hunger -= 1
+                if self.hunger <= 0:
+                    self.takeDamage(1)
 
 
 
@@ -344,9 +346,7 @@ class Player(Creature):
                 self.bricks -= 1
 
     def update(self):
-        if self.hunger <= 0:
-            HUNGER_MULTIPLIER = 0.1
-            self.health += self.hungerCount*HUNGER_MULTIPLIER
+        self.hungerUpdate()
         if self.health <= 0:
             self.die()
         self.moved = False
@@ -360,11 +360,6 @@ class Player(Creature):
         if self.app.scene == SCENE_PLAY:
             self.moveControls()
             self.shootControls()
-
-        self.hungerCount += 1
-
-        if self.hungerCount > 3600 and self.hungerCount % 240 == 0:  # after 2 minutes of not eating lose 1 point of hunger every 8 seconds
-            self.hunger -= 1
 
     def die(self):
         self.is_alive = False
@@ -440,7 +435,6 @@ class Bullet(BaseGameObject):
         self.is_alive = False
         if isinstance(other, Creature):
             pyxel.play(0, 6)
-
 
 
 class Enemy(Creature):
@@ -537,18 +531,13 @@ class Enemy(Creature):
         return self.stateAttack
 
     def update(self):
-        if self.hunger <= 0:
-            if self.stepCount % 30 == 0:
-                self.takeDamage(1)
+        self.hungerUpdate()
         self.moved = False
         if self.hunger < self.hungerStateLevel:
             self.state = self.stateLookForFood()
         else:
             self.state = self.state()
         self.stepCount += 1
-        self.hungerCount += 1
-        if self.hungerCount > 100 and self.hungerCount % 30 == 0:
-            self.hunger -= 1
 
 
 class Cursor(BaseGameObject):
