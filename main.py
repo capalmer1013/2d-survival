@@ -93,10 +93,10 @@ class App:
 
     def update_play_scene(self):
         pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
-        if pyxel.frame_count % 60 == 0: self.spawnInstance(Enemy)
-        if pyxel.frame_count % 60 == 0: self.spawnInstance(Ammo)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
-        if pyxel.frame_count % 120 == 0: self.spawnInstance(Brick)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
