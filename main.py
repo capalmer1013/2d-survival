@@ -21,6 +21,8 @@ class App:
         self.score = 0
         self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
+        #self.uiObjects = [UI(-200, 80, self, self)]
+        self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
         self.cursor = Cursor(0, 0, self.player, self)
@@ -29,7 +31,6 @@ class App:
         self.maxEnemies = 100
         self.numEnemies = 0
         self.numBricks = 0
-
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -44,7 +45,8 @@ class App:
                               (Enemy, Enemy), (Enemy, Brick),
                               (Player, Brick), (Player, Food),
                               (Enemy, Food), (Player, Bones),
-                              (Bullet, Brick), (Bullet, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Bullet, Brick), (Bullet, Barrel),
+                              (Player, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
@@ -64,9 +66,6 @@ class App:
 
         for _ in range(20):
             self.spawnInstance(Brick)
-
-        for _ in range(15):
-            self.spawnInstance(Food)
 
         for _ in range(25):
             self.spawnInstance(Barrel)
@@ -139,6 +138,7 @@ class App:
     def draw_play_scene(self):
         draw_list(self.gameObjects)
         draw_list(self.persistentGameObjects)
+        draw_list(self.uiObjects)
 
     def draw_gameover_scene(self):
         draw_list(self.gameObjects)

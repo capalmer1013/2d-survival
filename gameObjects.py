@@ -219,6 +219,21 @@ class Background:
         pass
 
 
+class UI:
+    def __init__(self, relx, rely, parent, app):
+        self.relx, self.rely = relx, rely
+        self.parent = parent
+        self.app = app
+        self.h = 16
+        self.w = 128
+
+    def update(self):
+        pass
+
+    def draw(self):
+        pyxel.rect(self.app.player.x + self.relx, self.app.player.y + self.rely, self.w, self.h, 13)
+        # pyxel.blt(self.relx, self.rely, 0, self.U, self.V, self.w, self.h, 14)
+
 class Ammo(BaseGameObject):
     U = 16
     V = 32
@@ -305,7 +320,7 @@ class Barrel(BaseGameObject):
     def __init__(self, x, y, parent, app):
         super().__init__(x, y, self, app)
         self.health = 100
-        self.contents = [random.choice([Ammo, Health, Brick]) for _ in range(random.randint(0, 4))]
+        self.contents = [random.choice([Ammo, Health, Brick]) for _ in range(random.randint(1, 6))]
 
     def collide(self, other):
         if isinstance(other, Bullet):
@@ -321,6 +336,7 @@ class Barrel(BaseGameObject):
 
     def update(self):
         pass
+
 
 class Food(BaseGameObject):
     U = 16
@@ -453,6 +469,9 @@ class Player(Creature):
 
         if isinstance(other, Bones):
             self.bones += 1
+
+        if isinstance(other, Barrel):
+            self.bounceBack(other)
 
 
 class Bullet(BaseGameObject):
@@ -623,6 +642,7 @@ class Bear(Enemy):
         self.deathClass = Food
         self.aggressiveness = random.uniform(0.5, 1.0)
         self.attackDistance = BASE_BLOCK * 10 * self.aggressiveness
+        self.health, self.maxHealth = (200, 200)
 
 class Cursor(BaseGameObject):
     def __init__(self, x, y, player, app):
