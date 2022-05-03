@@ -253,7 +253,8 @@ class Brick(BaseGameObject):
         self.damageSound, self.dieSound = True, True
 
     def collide(self, other):
-        pass
+        if isinstance(other, Bullet):
+            self.takeDamage(other.damage)
 
     def takeDamage(self, amount):
         if self.placed:
@@ -295,6 +296,31 @@ class Bones(BaseGameObject):
     def update(self):
         pass
 
+
+class Barrel(BaseGameObject):
+    U = 8
+    V = 48
+    w = 8
+    h = 16
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, self, app)
+        self.health = 100
+        self.contents = [random.choice([Ammo, Health, Brick]) for _ in range(random.randint(0, 4))]
+
+    def collide(self, other):
+        if isinstance(other, Bullet):
+            self.takeDamage(other.damage)
+
+    def takeDamage(self, amount):
+        self.health -= amount
+        if self.health <= 0:
+            self.is_alive = False
+            for each in self.contents:
+                randx, randy = random.randint(-8, 8), random.randint(-8, 8)
+                self.app.gameObjects.append(each(self.x+randx, self.y+randy, self, self.app))
+
+    def update(self):
+        pass
 
 class Food(BaseGameObject):
     U = 16

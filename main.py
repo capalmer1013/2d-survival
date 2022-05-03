@@ -43,7 +43,8 @@ class App:
                               (Player, Ammo), (Player, Health),
                               (Enemy, Enemy), (Enemy, Brick),
                               (Player, Brick), (Player, Food),
-                              (Enemy, Food), (Player, Bones)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Enemy, Food), (Player, Bones),
+                              (Bullet, Brick), (Bullet, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
@@ -67,9 +68,10 @@ class App:
         for _ in range(15):
             self.spawnInstance(Food)
 
+        for _ in range(25):
+            self.spawnInstance(Barrel)
+
     def update(self):
-        # if pyxel.btn(pyxel.KEY_Q):
-        #     pyxel.quit()
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
@@ -101,6 +103,7 @@ class App:
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
