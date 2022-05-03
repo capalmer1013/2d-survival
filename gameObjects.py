@@ -60,10 +60,10 @@ class GameObjectContainer:
 
 
 class BaseGameObject:
-    def __init__(self, x, y, player, app):
+    def __init__(self, x, y, parent, app):
         self.x = x
         self.y = y
-        self.player = player
+        self.parent = parent
         self.app = app
         self.is_alive = True
         self.moved = False
@@ -79,6 +79,9 @@ class BaseGameObject:
         self.x += (self.x - other.x) * bounceFactor
         self.y += (self.y - other.y) * bounceFactor
 
+    def update(self):
+        pass
+
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
@@ -88,8 +91,8 @@ class Creature(BaseGameObject):
     U = 16
     V = 0
 
-    def __init__(self, x, y, player, app, damage=5, maxHunger=100, deathClass=None):
-        super().__init__(x, y, player, app)
+    def __init__(self, x, y, parent, app, damage=10, maxHunger=100):
+        super().__init__(x, y, parent, app)
         self.w = BASE_BLOCK
         self.h = BASE_BLOCK
         self.HUNGER_MULTIPLIER = -0.1
@@ -98,13 +101,14 @@ class Creature(BaseGameObject):
         self.health, self.maxHealth = (100, 100)
         self.is_alive = True
         self.damage = damage
-        self.deathClass = deathClass if deathClass else Blast
+        self.deathClass = Blast
         self.hunger, self.maxHunger = (maxHunger, maxHunger)
         self.hungerCount = 0
-        self.player = player
         self.app = app
         self.targetPoint = None
         self.dieSound, self.damageSound = False, False
+        self.bones = 0
+        self.aggressiveness = 0.5
 
     def debounceDir(self, w, h):
         if self.dir[0] != w or self.dir[1] != h and self.dirtime > 10:
@@ -122,7 +126,7 @@ class Creature(BaseGameObject):
 
     def die(self):
         self.is_alive = False
-        self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2))
+        self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app))
         if self.dieSound:
             pyxel.play(1, 2)  # todo: distance from player affect volume level
 
@@ -144,6 +148,18 @@ class Creature(BaseGameObject):
                 if self.hunger <= 0:
                     self.takeDamage(1)
 
+    def melee(self):
+        hit = False
+        for nearby in [x for x in self.app.gameObjects.getNearbyElements(self) if distance(x, self) < BASE_BLOCK*2 and isinstance(x, Creature) and x is not self]:
+            self.bounceBack(nearby)
+            nearby.takeDamage(self.damage + self.bones)
+            hit = True
+
+        if hit:
+            pyxel.play(0, 6)
+
+        if self.bones:
+            self.bones = max(self.bones-1, 0)
 
 
 class Item(BaseGameObject):
@@ -258,10 +274,26 @@ class Brick(BaseGameObject):
 
     def die(self, sound=False, score=0):
         self.is_alive = False
-        self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2))
+        self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2, self, self.app))
         if sound:
             pyxel.play(1, 2)
         self.app.score += score
+
+
+class Bones(BaseGameObject):
+    U = 16
+    V = 48
+
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, parent, app)
+        self.w = 16
+        self.h = 16
+
+    def collide(self, other):
+        self.is_alive = False
+
+    def update(self):
+        pass
 
 
 class Food(BaseGameObject):
@@ -270,12 +302,13 @@ class Food(BaseGameObject):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, parent, app)
         self.amount = 50
 
     def collide(self, other):
-        self.is_alive = False
+        if other != self.parent:
+            self.is_alive = False
 
     def update(self):
         pass
@@ -309,8 +342,8 @@ class Player(Creature):
     MOVE_UP_KEY = pyxel.KEY_W
     MOVE_DOWN_KEY = pyxel.KEY_S
 
-    def __init__(self, x, y, gameObjects, app):
-        super().__init__(x, y, self, app)
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, parent, app)
         self.maxHealth = 100
         self.ammo = 10
         self.bricks = 0
@@ -319,6 +352,7 @@ class Player(Creature):
         self.damageCount = 0
         self.hungerCount = 0
         self.dieSound, self.damageSound = True, True
+        self.bones = 0
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
@@ -342,8 +376,11 @@ class Player(Creature):
                 self.ammo -= 1
         if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
             if self.bricks > 0:
-                self.app.gameObjects.append(Brick(self.app.cursor.x, self.app.cursor.y, self.app.gameObjects, self.app, placed=True))
+                self.app.gameObjects.append( Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self.app.gameObjects, self.app, placed=True))
                 self.bricks -= 1
+
+        if pyxel.btnp(pyxel.KEY_SPACE):
+            self.melee()
 
     def update(self):
         self.hungerUpdate()
@@ -363,7 +400,7 @@ class Player(Creature):
 
     def die(self):
         self.is_alive = False
-        self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2))
+        self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app))
         pyxel.play(0, 0)
         self.app.scene = SCENE_GAMEOVER
         self.health = 100
@@ -385,6 +422,9 @@ class Player(Creature):
 
         if isinstance(other, Health):
             self.heal(other.healthAmount, True)
+
+        if isinstance(other, Bones):
+            self.bones += 1
 
 
 class Bullet(BaseGameObject):
@@ -441,15 +481,18 @@ class Enemy(Creature):
     w = ENEMY_WIDTH
     h = ENEMY_HEIGHT
 
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app, damage=5)
+    def __init__(self, x, y, parent, app, *args, **kwargs):
+        super().__init__(x, y, parent, app, *args, **kwargs)
         self.U, self.V = (random.choice([(32, 16), (48, 16), (48, 32), (48, 48)]))
+        self.deathClass = Bones
         self.timer_offset = pyxel.rndi(0, 59)
         self.stepCount = 0
         self.state = self.stateInit
         self.targetPoint = Point(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
-        self.attackDistance = BASE_BLOCK * 10
         self.hungerStateLevel = 3
+        self.speed = ENEMY_SPEED
+        self.aggressiveness = random.uniform(0.0, 1.0)
+        self.attackDistance = BASE_BLOCK * 10 * self.aggressiveness
 
     def collide(self, other):
         if isinstance(other, Bullet):
@@ -507,8 +550,8 @@ class Enemy(Creature):
 
         self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
         self.app.gameObjects.updateObject(self)
-        if self.player in self.app.gameObjects.getNearbyElements(self):
-            if distance(self, self.player) < self.attackDistance and self.player.is_alive:
+        if self.app.player in self.app.gameObjects.getNearbyElements(self):
+            if distance(self, self.app.player) < self.attackDistance and self.app.player.is_alive:
                 self.stepCount = 0
                 return self.stateAttack
         return self.stateRandomWalk
@@ -516,15 +559,15 @@ class Enemy(Creature):
     def stateAttack(self):
         self.moved = True
         self.hunger -= 0.1
-        if not self.player.is_alive:
+        if not self.app.player.is_alive:
             return self.stateRandomWalk
-        self.x, self.y, h, w = stepToward(self.player, self, ENEMY_SPEED*3)
+        self.x, self.y, h, w = stepToward(self.app.player, self, self.speed*3)
         self.app.gameObjects.updateObject(self)
         if self.stepCount > 240:
             self.stepCount = 0
             return random.choice([self.stateAttack, self.stateInit, self.stateRandomWalk])
 
-        if distance(self, self.player) > self.attackDistance:
+        if distance(self, self.app.player) > self.attackDistance:
             self.stepCount = 0
             return self.stateRandomWalk
 
@@ -539,6 +582,19 @@ class Enemy(Creature):
             self.state = self.state()
         self.stepCount += 1
 
+
+class Bear(Enemy):
+    w = ENEMY_WIDTH
+    h = ENEMY_HEIGHT
+
+    def __init__(self, x, y, player, app):
+        super().__init__(x, y, player, app)
+        self.U, self.V = (0, 32)
+        self.speed = ENEMY_SPEED * 1.5
+        self.damage = 15
+        self.deathClass = Food
+        self.aggressiveness = random.uniform(0.5, 1.0)
+        self.attackDistance = BASE_BLOCK * 10 * self.aggressiveness
 
 class Cursor(BaseGameObject):
     def __init__(self, x, y, player, app):
@@ -563,7 +619,7 @@ class Cursor(BaseGameObject):
 
 
 class Blast:
-    def __init__(self, x, y):
+    def __init__(self, x, y, player, app):
         self.x = x
         self.y = y
         self.radius = BLAST_START_RADIUS
