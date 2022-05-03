@@ -576,6 +576,7 @@ class Enemy(Creature):
 
     def collide(self, other):
         if isinstance(other, Bullet):
+            self.bounceBack(other)
             self.takeDamage(other.damage)
         if isinstance(other, Player):
             self.bounceBack(other)
