@@ -21,6 +21,8 @@ class App:
         self.score = 0
         self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
+        #self.uiObjects = [UI(-200, 80, self, self)]
+        self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
         self.cursor = Cursor(0, 0, self.player, self)
@@ -29,7 +31,6 @@ class App:
         self.maxEnemies = 100
         self.numEnemies = 0
         self.numBricks = 0
-
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -139,6 +140,7 @@ class App:
     def draw_play_scene(self):
         draw_list(self.gameObjects)
         draw_list(self.persistentGameObjects)
+        draw_list(self.uiObjects)
 
     def draw_gameover_scene(self):
         draw_list(self.gameObjects)

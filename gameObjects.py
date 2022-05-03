@@ -219,6 +219,21 @@ class Background:
         pass
 
 
+class UI:
+    def __init__(self, relx, rely, parent, app):
+        self.relx, self.rely = relx, rely
+        self.parent = parent
+        self.app = app
+        self.h = 16
+        self.w = 128
+
+    def update(self):
+        pass
+
+    def draw(self):
+        pyxel.rect(self.app.player.x + self.relx, self.app.player.y + self.rely, self.w, self.h, 13)
+        # pyxel.blt(self.relx, self.rely, 0, self.U, self.V, self.w, self.h, 14)
+
 class Ammo(BaseGameObject):
     U = 16
     V = 32
@@ -321,6 +336,7 @@ class Barrel(BaseGameObject):
 
     def update(self):
         pass
+
 
 class Food(BaseGameObject):
     U = 16
