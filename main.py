@@ -45,7 +45,8 @@ class App:
                               (Enemy, Enemy), (Enemy, Brick),
                               (Player, Brick), (Player, Food),
                               (Enemy, Food), (Player, Bones),
-                              (Bullet, Brick), (Bullet, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Bullet, Brick), (Bullet, Barrel),
+                              (Player, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
@@ -65,9 +66,6 @@ class App:
 
         for _ in range(20):
             self.spawnInstance(Brick)
-
-        for _ in range(15):
-            self.spawnInstance(Food)
 
         for _ in range(25):
             self.spawnInstance(Barrel)

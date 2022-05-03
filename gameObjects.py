@@ -320,7 +320,7 @@ class Barrel(BaseGameObject):
     def __init__(self, x, y, parent, app):
         super().__init__(x, y, self, app)
         self.health = 100
-        self.contents = [random.choice([Ammo, Health, Brick]) for _ in range(random.randint(0, 4))]
+        self.contents = [random.choice([Ammo, Health, Brick]) for _ in range(random.randint(1, 6))]
 
     def collide(self, other):
         if isinstance(other, Bullet):
@@ -467,6 +467,9 @@ class Player(Creature):
 
         if isinstance(other, Bones):
             self.bones += 1
+
+        if isinstance(other, Barrel):
+            self.bounceBack(other)
 
 
 class Bullet(BaseGameObject):
@@ -637,6 +640,7 @@ class Bear(Enemy):
         self.deathClass = Food
         self.aggressiveness = random.uniform(0.5, 1.0)
         self.attackDistance = BASE_BLOCK * 10 * self.aggressiveness
+        self.health, self.maxHealth = (200, 200)
 
 class Cursor(BaseGameObject):
     def __init__(self, x, y, player, app):
