@@ -65,8 +65,6 @@ class App:
             self.spawnInstance(Food)
 
     def update(self):
-        # if pyxel.btn(pyxel.KEY_Q):
-        #     pyxel.quit()
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
