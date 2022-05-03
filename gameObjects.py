@@ -352,7 +352,8 @@ class Health(BaseGameObject):
 
     def collide(self, other):
         if isinstance(other, Player):
-            self.is_alive = False
+            if other.health != other.maxHealth:
+                self.is_alive = False
 
     def update(self):
         pass
@@ -447,7 +448,8 @@ class Player(Creature):
             self.eat(other.amount)
 
         if isinstance(other, Health):
-            self.heal(other.healthAmount, True)
+            if self.health != self.maxHealth:
+                self.heal(other.healthAmount, True)
 
         if isinstance(other, Bones):
             self.bones += 1

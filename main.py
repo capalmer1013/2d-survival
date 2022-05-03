@@ -82,8 +82,8 @@ class App:
                 bList = [x for x in self.gameObjects.getNearbyElements(a) if isinstance(x, each[1])]
                 for b in bList:
                     if a != b and collision(a, b):
-                        a.collide(b)
                         b.collide(a)
+                        a.collide(b)
 
     def numType(self, t):
         return len([x for x in self.gameObjects if isinstance(x, t)])
