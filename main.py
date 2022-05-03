@@ -22,7 +22,7 @@ class App:
         self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
-        self.player = Player(pyxel.width / 2, pyxel.height - 20, self.gameObjects, self)
+        self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
         self.cursor = Cursor(0, 0, self.player, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
@@ -43,7 +43,8 @@ class App:
                               (Player, Ammo), (Player, Health),
                               (Enemy, Enemy), (Enemy, Brick),
                               (Player, Brick), (Player, Food),
-                              (Enemy, Food)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Enemy, Food), (Player, Bones),
+                              (Bullet, Brick), (Bullet, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
@@ -52,21 +53,25 @@ class App:
             self.gameObjects.append(tmp)
 
     def initWorld(self):
-        for _ in range(100):
+        for _ in range(15):
             self.spawnInstance(Enemy)
 
-        for _ in range(100):
+        for _ in range(25):
+            self.spawnInstance(Bear)
+
+        for _ in range(50):
             self.spawnInstance(Ammo)
 
-        for _ in range(100):
+        for _ in range(20):
             self.spawnInstance(Brick)
 
-        for _ in range(100):
+        for _ in range(15):
             self.spawnInstance(Food)
 
+        for _ in range(25):
+            self.spawnInstance(Barrel)
+
     def update(self):
-        # if pyxel.btn(pyxel.KEY_Q):
-        #     pyxel.quit()
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
@@ -97,6 +102,8 @@ class App:
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
+        if pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list(self.gameObjects)
@@ -123,7 +130,7 @@ class App:
         pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
         pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
         pyxel.text(relx+39, rely+28, f"Hunger: {self.player.hunger}", 7)
-        pyxel.text(relx + 39, rely+36, f"enemies: {self.numEnemies}", 7)
+        pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
         pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
