@@ -66,18 +66,28 @@ class GameObjectContainer:
 
 class Inventory:
     def __init__(self):
-        self.items = []
+        self.items = {}
 
-    def getItem(self, i):
-        try:
-            return self.items[i]
-        except IndexError:
-            return None
+    def getItem(self, index):
+        item = self.items[list(self.items.keys())[index]]
+        if item.amount > 0:
+            item.amount -= 1
+            if item.amount == 0:
+                self.items.pop(list(self.items.keys())[index], None)
+            return item.__class__
+        return None
 
-    def addItem(self, item):
-        for each in self.items:
-            if isinstance(each, type(item)):
-                pass
+    def append(self, item):
+        if type(item) in self.items:
+            self.items[type(item)].amount += item.amount
+        else:
+            self.items[type(item)] = item
+        # if hte list is full just drop it
+        pass
+
+    def dict(self):
+        return {x:self.items[x].amount for x in self.items}
+
 
 class BaseGameObject:
     U = 16
@@ -327,8 +337,9 @@ class Door(BuildingMaterial):
     w = 16
     h = 16
 
-    def __init__(self, x, y, parent, app):
+    def __init__(self, x, y, parent, app, placed=False):
         super().__init__(x, y, parent, app)
+        self.placed = placed
         self.amount = 1
 
 
@@ -415,14 +426,13 @@ class Player(Creature):
         super().__init__(x, y, parent, app)
         self.maxHealth = 100
         self.ammo = 10
-        self.bricks = 100
         self.health = self.maxHealth
         self.hunger, self.maxHunger = (100, 100)
         self.damageCount = 0
         self.hungerCount = 0
         self.dieSound, self.damageSound = True, True
         self.bones = 0
-        self.inventory = {}
+        self.inventory = Inventory()
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
@@ -444,16 +454,38 @@ class Player(Creature):
                 ))
                 pyxel.play(0, 1)
                 self.ammo -= 1
-        if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
-            if self.bricks > 0:
-                self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
-                self.bricks -= 1
+        # if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
+        ## todo: might use this for current selected inventory item on right mouse trigger
+        #     if self.bricks > 0:
+        #         self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
+        #         self.bricks -= 1
 
         if pyxel.btnp(pyxel.KEY_SPACE):
             self.melee()
 
+        inventory_index = None
         if pyxel.btnp(pyxel.KEY_1):
-            keys = self.inventory.keys()
+            inventory_index = 0
+        if pyxel.btn(pyxel.KEY_2):
+            inventory_index = 1
+        if pyxel.btnp(pyxel.KEY_3):
+            inventory_index = 2
+        if pyxel.btn(pyxel.KEY_4):
+            inventory_index = 3
+        if pyxel.btnp(pyxel.KEY_5):
+            inventory_index = 4
+        try:
+            self.app.gameObjects.append(
+                self.inventory.getItem(inventory_index)(int(self.app.cursor.x / 8) * 8,
+                                                        int(self.app.cursor.y / 8) * 8,
+                                                        self,
+                                                        self.app,
+                                                        placed=True))
+        except TypeError:
+            pass
+        except IndexError:
+            pass
+
             # inventory should probably be its own class
 
     def update(self):
@@ -486,7 +518,7 @@ class Player(Creature):
 
         if isinstance(other, Brick):
             if not other.placed:
-                self.bricks += other.amount
+                self.inventory.append(other)
                 other.is_alive = False
             else:
                 self.bounceBack(other)
@@ -511,7 +543,6 @@ class Player(Creature):
             else:
                 if other.parent is not self:
                     self.bounceBack(other)
-
 
 
 class Bullet(BaseGameObject):
