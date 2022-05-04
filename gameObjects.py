@@ -64,6 +64,21 @@ class GameObjectContainer:
         self.GRID[x][y].remove(elem)
 
 
+class Inventory:
+    def __init__(self):
+        self.items = []
+
+    def getItem(self, i):
+        try:
+            return self.items[i]
+        except IndexError:
+            return None
+
+    def addItem(self, item):
+        for each in self.items:
+            if isinstance(each, type(item)):
+                pass
+
 class BaseGameObject:
     U = 16
     V = 0
