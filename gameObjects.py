@@ -309,7 +309,7 @@ class Brick(BuildingMaterial):
 
 
 class Door(BuildingMaterial):
-    U = 16
+    U = 32
     V = 64
     w = 16
     h = 16
