@@ -126,11 +126,18 @@ class App:
         pyxel.cls(0)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
-        pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
-        pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
-        pyxel.text(relx+39, rely+28, f"Hunger: {self.player.hunger}", 7)
-        pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
-        pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
+        pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
+        pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
+        pyxel.text(relx + 39, rely+24, f"Ammo: {self.player.ammo}", 7)
+        y = 24 + 8
+        inv_dict = self.player.inventory.dict()
+        count = 1
+        for each in inv_dict:
+            pyxel.text(relx+39, rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
+            y += 8
+            count += 1
+            # pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
+            # pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)
