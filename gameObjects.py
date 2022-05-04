@@ -438,15 +438,8 @@ class Player(Creature):
             self.melee()
 
         if pyxel.btnp(pyxel.KEY_1):
-            tmp = [x for x in self.inventory if isinstance(x, Door)]
-            # todo: the real solution is to implement an inventory class
-            if tmp:
-                # todo: wtf... there must be a better way
-                self.inventory.remove(tmp[0])
-                tmp[0].x, tmp[0].y = int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8
-                tmp[0].placed = True
-                tmp[0].parent = self
-                self.app.gameObjects.append(tmp[0])
+            keys = self.inventory.keys()
+            # inventory should probably be its own class
 
     def update(self):
         self.hungerUpdate()
