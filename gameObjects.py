@@ -60,6 +60,8 @@ class GameObjectContainer:
 
 
 class BaseGameObject:
+    U = 16
+    V = 0
     def __init__(self, x, y, parent, app):
         self.x = x
         self.y = y
@@ -84,6 +86,17 @@ class BaseGameObject:
 
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+
+
+class Item(BaseGameObject):
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, parent, app)
+        self.ttl = 9000  # 5 minnutes if update gets called 30x/s
+
+    def update(self):
+        self.ttl -= 1
+        if self.ttl <= 0:
+            self.is_alive = False
 
 
 # make abstract class probably
@@ -161,18 +174,8 @@ class Creature(BaseGameObject):
         if self.bones:
             self.bones = max(self.bones-1, 0)
 
-
-class Item(BaseGameObject):
-    pass
-
-
-# these can both probably inheret from something
-class Scene:
-    pass
-
-
-class StateMachine:
-    pass
+    def collide(self, other):
+        self.takeDamage(other.damage)
 
 
 class Point(BaseGameObject):
@@ -234,7 +237,8 @@ class UI:
         pyxel.rect(self.app.player.x + self.relx, self.app.player.y + self.rely, self.w, self.h, 13)
         # pyxel.blt(self.relx, self.rely, 0, self.U, self.V, self.w, self.h, 14)
 
-class Ammo(BaseGameObject):
+
+class Ammo(Item):
     U = 16
     V = 32
     w = 8
@@ -249,11 +253,8 @@ class Ammo(BaseGameObject):
             self.is_alive = False
             other.ammo += self.ammoAmmount
 
-    def update(self):
-        pass
 
-
-class Brick(BaseGameObject):
+class Brick(Item):
     U = 24
     V = 40
     w = 8
@@ -274,12 +275,15 @@ class Brick(BaseGameObject):
     def takeDamage(self, amount):
         if self.placed:
             self.health -= amount
+            if self.health <= 0:
+                self.die(True)
             if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
                 pyxel.play(0, 8)
 
     def update(self):
-        if self.health <= 0:
-            self.die(True)
+        self.ttl -= 1
+        if self.ttl <= 0 and not self.placed:
+            self.is_alive = False
 
     def draw(self):
         if self.placed:
@@ -296,7 +300,7 @@ class Brick(BaseGameObject):
         self.app.score += score
 
 
-class Bones(BaseGameObject):
+class Bones(Item):
     U = 16
     V = 48
 
@@ -308,11 +312,8 @@ class Bones(BaseGameObject):
     def collide(self, other):
         self.is_alive = False
 
-    def update(self):
-        pass
 
-
-class Barrel(BaseGameObject):
+class Barrel(Item):
     U = 8
     V = 48
     w = 8
@@ -334,11 +335,8 @@ class Barrel(BaseGameObject):
                 randx, randy = random.randint(-8, 8), random.randint(-8, 8)
                 self.app.gameObjects.append(each(self.x+randx, self.y+randy, self, self.app))
 
-    def update(self):
-        pass
 
-
-class Food(BaseGameObject):
+class Food(Item):
     U = 16
     V = 40
     w = 8
@@ -352,11 +350,8 @@ class Food(BaseGameObject):
         if other != self.parent:
             self.is_alive = False
 
-    def update(self):
-        pass
 
-
-class Health(BaseGameObject):
+class Health(Item):
     U = 24
     V = 32
     w = 8
@@ -370,9 +365,6 @@ class Health(BaseGameObject):
         if isinstance(other, Player):
             if other.health != other.maxHealth:
                 self.is_alive = False
-
-    def update(self):
-        pass
 
 
 class Player(Creature):
@@ -643,6 +635,7 @@ class Bear(Enemy):
         self.aggressiveness = random.uniform(0.5, 1.0)
         self.attackDistance = BASE_BLOCK * 10 * self.aggressiveness
         self.health, self.maxHealth = (200, 200)
+
 
 class Cursor(BaseGameObject):
     def __init__(self, x, y, player, app):
