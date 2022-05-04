@@ -225,8 +225,6 @@ class Background:
                 #pyxel.pset(x, y, int(pyxel.noise(x, y))%16)
                 pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 
-        pass
-
 
 class UI:
     def __init__(self, relx, rely, parent, app):
@@ -252,12 +250,12 @@ class Ammo(Item):
 
     def __init__(self, x, y, player, app):
         super().__init__(x, y, player, app)
-        self.ammoAmmount = 10
+        self.amount = 10
 
     def collide(self, other):
         if isinstance(other, Player):
             self.is_alive = False
-            other.ammo += self.ammoAmmount
+            other.ammo += self.amount
 
 
 class BuildingMaterial(Item):
@@ -316,6 +314,7 @@ class Door(BuildingMaterial):
 
     def __init__(self, x, y, parent, app):
         super().__init__(x, y, parent, app)
+        self.amount = 1
 
 
 class Bones(Item):
@@ -408,7 +407,7 @@ class Player(Creature):
         self.hungerCount = 0
         self.dieSound, self.damageSound = True, True
         self.bones = 0
-        self.inventory = [Door(self.x, self.y, self, self.app), Door(self.x, self.y, self, self.app)]
+        self.inventory = {}
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
