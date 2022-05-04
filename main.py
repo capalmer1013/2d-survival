@@ -46,7 +46,7 @@ class App:
                               (Player, Brick), (Player, Food),
                               (Enemy, Food), (Player, Bones),
                               (Bullet, Brick), (Bullet, Barrel),
-                              (Player, Barrel)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Player, Barrel), (Creature, Door)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
