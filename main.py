@@ -47,7 +47,7 @@ class App:
                               (Enemy, Food), (Player, Bones),
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
-                              (Player, StorageChest)]
+                              (Player, StorageChest), (StorageChest, Item)]
         pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
