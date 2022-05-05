@@ -114,3 +114,7 @@ def resource_path(relative_path):
 
 def collision(a, b):
     return a.x + a.w > b.x and b.x + b.w > a.x and a.y + a.h > b.y and b.y + b.h > a.y
+
+
+def getRandomSpawnCoords(T):
+    return pyxel.rndi(0, WORLD_WIDTH - T.w), pyxel.rndi(0, WORLD_HEIGHT - T.h)
