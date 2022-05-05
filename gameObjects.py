@@ -65,8 +65,11 @@ class GameObjectContainer:
 
 
 class Inventory:
-    def __init__(self):
+    def __init__(self, l=None):
         self.items = {}
+        if l:
+            for each in l:
+                self.append(each)
 
     def getItem(self, index):
         item = self.items[list(self.items.keys())[index]]
@@ -87,6 +90,9 @@ class Inventory:
 
     def dict(self):
         return {x:self.items[x].amount for x in self.items}
+
+    def get_all(self):
+        return list(self.items.keys())
 
 
 class BaseGameObject:
@@ -119,9 +125,10 @@ class BaseGameObject:
 
 
 class Item(BaseGameObject):
-    def __init__(self, x, y, parent, app):
+    def __init__(self, x, y, parent, app, amount=10):
         super().__init__(x, y, parent, app)
         self.ttl = 9000  # 5 minnutes if update gets called 30x/s
+        self.amount = amount
 
     def update(self):
         self.ttl -= 1
@@ -273,9 +280,9 @@ class Ammo(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
-        self.amount = 10
+    def __init__(self, x, y, player, app, amount=10):
+        super().__init__(x, y, player, app, amount=amount)
+        self.amount = amount
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -324,6 +331,35 @@ class BuildingMaterial(Item):
         self.app.score += score
 
 
+class HasInventoryMixin:
+    def scatterInventory(self):
+        for each in self.inventory.get_all():
+            randx, randy = random.randint(-8, 8), random.randint(-8, 8)
+            self.app.gameObjects.append(each(self.x + randx, self.y + randy, self, self.app))
+
+    def takeDamage(self, amount):
+        self.health -= amount
+        if self.health <= 0:  # todo: move this into die function
+            self.is_alive = False
+            self.scatterInventory()
+
+
+class StorageChest(BuildingMaterial, HasInventoryMixin):
+    U = 0
+    V = 24
+    w = 16
+    h = 8
+
+    def __init__(self, x, y, parent, app, placed=False, amount=1):
+        super().__init__(x, y, parent, app)
+        self.placed = placed
+        self.amount = amount
+
+    def collide(self, other):
+        if isinstance(other, Bullet):
+            self.takeDamage(other.damage)
+
+
 class Brick(BuildingMaterial):
     U = 24
     V = 40
@@ -356,7 +392,7 @@ class Bones(Item):
         self.is_alive = False
 
 
-class Barrel(Item):
+class Barrel(Item, HasInventoryMixin):
     U = 8
     V = 48
     w = 8
@@ -366,19 +402,11 @@ class Barrel(Item):
         self.health = 100
         #self.contents = [random.choice([Door]) for _ in range(random.randint(1, 6))]
 
-        self.contents = [random.choice([Ammo, Health, Brick, Door]) for _ in range(random.randint(1, 6))]
+        self.inventory = Inventory([random.choice([Ammo, Health, Brick, Door, StorageChest])(0, 0, self, self.app) for _ in range(random.randint(1, 6))])
 
     def collide(self, other):
         if isinstance(other, Bullet):
             self.takeDamage(other.damage)
-
-    def takeDamage(self, amount):
-        self.health -= amount
-        if self.health <= 0:
-            self.is_alive = False
-            for each in self.contents:
-                randx, randy = random.randint(-8, 8), random.randint(-8, 8)
-                self.app.gameObjects.append(each(self.x+randx, self.y+randy, self, self.app))
 
 
 class Food(Item):
@@ -402,9 +430,9 @@ class Health(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app, healthAmount=10):
-        super().__init__(x, y, player, app)
-        self.healthAmount = healthAmount
+    def __init__(self, x, y, player, app, amount=10):
+        super().__init__(x, y, player, app, amount=amount)
+        self.amount = amount
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -481,11 +509,12 @@ class Player(Creature):
                                                         self,
                                                         self.app,
                                                         placed=True))
-        except TypeError:
+        except TypeError as e:
+            # print(e)
             pass
-        except IndexError:
+        except IndexError as e:
+            # print(e)
             pass
-
             # inventory should probably be its own class
 
     def update(self):
@@ -537,6 +566,14 @@ class Player(Creature):
             self.bounceBack(other)
 
         if isinstance(other, Door):
+            if not other.placed:
+                self.inventory.append(other)
+                self.app.gameObjects.remove(other)
+            else:
+                if other.parent is not self:
+                    self.bounceBack(other)
+
+        if isinstance(other, StorageChest):
             if not other.placed:
                 self.inventory.append(other)
                 self.app.gameObjects.remove(other)
