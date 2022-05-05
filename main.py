@@ -1,7 +1,7 @@
 import time
 import cProfile
 import pyxel
-from pygase import GameState, Backend
+from pygase import GameState, Backend, Client as PygaseClient
 from constants import *
 from utils import *
 from gameObjects import *
@@ -9,7 +9,7 @@ from gameObjects import *
 
 class Client:
     def __init__(self):
-        pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
+        pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Survival Game")
         pyxel.load(resource_path("assets.pyxres"))
         self.scene = SCENE_TITLE
         self.score = 0
@@ -19,8 +19,8 @@ class Client:
         #self.uiObjects = [UI(-200, 80, self, self)]
         self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
-        # TODO: replace with self.gameObjects[player_object_id], make getter/setter for self.player
-        self.player = Player(*getRandomSpawnCoords(Player), self, self)
+        # self.player = Player(*getRandomSpawnCoords(Player), self, self)
+        self.player_object_id = None
         self.cursor = Cursor(0, 0, self.player, self)
 
         # config
@@ -31,16 +31,41 @@ class Client:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-        # TODO: dispatch join event, pass entire player object dict, while loop until player_object_id is set
+
+        # Networking/pygase
+        self.pygase_client = PygaseClient()
+        self.pygase_client.register_event_handler('JOINED', self.onJoined)
+        self.pygase_client.connect_in_thread(hostname="localhost", port=8000)
+        self.pygase_client.dispatch_event('JOIN')
 
         pyxel.run(self.update, self.draw)
+
+    @property
+    def player(self):
+        try:
+            player = self.gameObjects[self.player_object_id]
+        except KeyError:
+            player = None
+        return player
+
+    @player.setter
+    def player(self, p):
+        self.gameObjects[self.player_object_id] = p
+
+    def onJoined(self, player_object_id, player_object_dict):
+        # TODO: maybe only send x,y coordinates
+        # yea I know it's hacky, but it works. Need to override x,y from the server
+        player = Player(0, 0, self, self)
+        player.__dict__.update(player_object_dict)
+        self.player_object_id = player_object_id
+        self.player = player
 
     def update(self):
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
     def getRelativeXY(self):
-        return self.player.x - self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2
+        return self.player.x - SCREEN_WIDTH/2, self.player.y - SCREEN_HEIGHT/2
 
     def update_title_scene(self):
         if pyxel.btnp(pyxel.KEY_RETURN):
@@ -48,7 +73,10 @@ class Client:
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
-        pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
+        if self.player:
+            pyxel.camera(self.player.x-SCREEN_WIDTH/2, self.player.y - SCREEN_HEIGHT/2)
+            # TODO: access game state and register updates
+            # TODO: send key presses to server
         # if pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
         # if pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
         # if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
@@ -118,6 +146,9 @@ class App:
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
+        self.gameObjects = GameObjectContainer(self)
+
+        # Networking/pygase
         initial_game_state = GameState(
             # players={},  # dict with `player_id: player_dict` entries
             # Needs to be a dict (not list) to delete objects from game state by key
@@ -125,7 +156,6 @@ class App:
             gameStartTimestamp=None,
             lastSpawnMonotonicTime=None # Should be cast to an integer i.e. seconds
         )
-        # TODO: run pygase backend here
         self.backend = Backend(initial_game_state, self.timeStep, event_handlers={"MOVE": self.onMove, "JOIN": self.onJoin})
         self.backend.run(hostname="localhost", port=8000)
 
@@ -138,7 +168,7 @@ class App:
             lastSpawnMonotonicTime = game_state.lastSpawnMonotonicTime
             currentMonotonicTime = int(time.monotonic())
             if (currentMonotonicTime - lastSpawnMonotonicTime) >= 8:
-                # TODO: change to use getRandomGridCoords to instantiate object
+                # TODO: change to use getRandomGridCoords to instantiate object, maybe re-implement spawn method to add to gameObjects - also dispatch create event?
                 self.spawnInstance(Enemy)
                 self.spawnInstance(Ammo)
                 self.spawnInstance(Health)
@@ -152,15 +182,17 @@ class App:
         # TODO: serialize all game objects and send that as update
         return new_game_state
 
-    def onJoin(self, player_object_dict, game_state, client_address, **kwargs):
+    def onJoin(self, game_state, client_address, **kwargs):
         print('new player joined')
         player_object_id = len(game_state.gameObjectDicts)
-        new_game_state = {'gameObjectDicts': {player_object_id: { 'type': Player, 'data': player_object_dict}}}
+        # TODO: this will have a parent of App, while client will have a parent of Client - make sure that's fine
+        player = Player(*getRandomSpawnCoords(Player), self, self)
+        self.gameObjects[player_object_id] = player
+        new_game_state = {'gameObjectDicts': {player_object_id: {'type': Player, 'data': player.__dict__}}}
         if not game_state.gameStartTimestamp:
-            new_game_state['gameStartTimestamp'] = time.mktime(time.gmtime())
-        self.backend.server.dispatch_event("PLAYER_CREATED", player_object_id, target_client=client_address, retries=1)
+            new_game_state['gameStartTimestamp'] = time.time()
+        self.backend.server.dispatch_event("JOINED", player_object_id, player.__dict__, target_client=client_address, retries=1)
         return new_game_state
-
 
     def onMove(self, player_object_id, x, y, **kwargs):
         # TODO: verify that object is 1) a player 2) the player dispatching the event

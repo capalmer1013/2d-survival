@@ -6,10 +6,10 @@ BULLETS_FIRED = 0
 
 
 class GameObjectContainer:
-    def __init__(self, app):
-        self.app = app
+    def __init__(self, pygase_client=None):
+        self.pygase_client = pygase_client
         self.gameList = []
-        self.gridw, self.gridh = self.app.SCREEN_WIDTH//2, self.app.SCREEN_HEIGHT//2
+        self.gridw, self.gridh = SCREEN_WIDTH//2, SCREEN_HEIGHT//2
         self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
         self.n = 0
 
@@ -35,6 +35,12 @@ class GameObjectContainer:
             oldx, oldy = elem.gridCoord
             self.GRID[oldx][oldy].remove(elem)
             elem.gridCoord = (x, y)
+            if self.pygase_client:
+                self.pygase_client.dispatch_event(
+                    event_type="MOVE",
+                    object_id=elem.object_id,
+                    new_position=(elem.x, elem.y)
+                )
 
     def pop(self, i=None):
         x, y = self.gameList[i].gridCoord
