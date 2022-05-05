@@ -31,7 +31,6 @@ class Client:
         self.sceneDrawDict = {SCENE_TITLE: self.draw_title_scene,
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
-
         # TODO: dispatch join event, pass entire player object dict, while loop until player_object_id is set
 
         pyxel.run(self.update, self.draw)
@@ -81,11 +80,18 @@ class Client:
         pyxel.cls(0)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
-        pyxel.text(relx+39, rely+4, f"Ammo: {self.player.ammo}", 7)
-        pyxel.text(relx+39, rely+16, f"Health: {self.player.health}", 7)
-        pyxel.text(relx+39, rely+28, f"Hunger: {self.player.hunger}", 7)
-        pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
-        pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
+        pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
+        pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
+        pyxel.text(relx + 39, rely+24, f"Ammo: {self.player.ammo}", 7)
+        y = 24 + 8
+        inv_dict = self.player.inventory.dict()
+        count = 1
+        for each in inv_dict:
+            pyxel.text(relx+39, rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
+            y += 8
+            count += 1
+            # pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
+            # pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
         pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)
@@ -100,6 +106,7 @@ class Client:
         draw_list(self.persistentGameObjects)
         pyxel.text(43, 66, "GAME OVER", 8)
 
+
 # TODO: rename to server?
 class App:
     def __init__(self):
@@ -109,7 +116,8 @@ class App:
                               (Player, Brick), (Player, Food),
                               (Enemy, Food), (Player, Bones),
                               (Bullet, Brick), (Bullet, Barrel),
-                              (Player, Barrel), (Creature, Door)]  # todo: store game objects in 2d array with modulo of location to only do collision detection close to player
+                              (Player, Barrel), (Creature, Door),
+                              (Player, StorageChest), (StorageChest, Item)]
         initial_game_state = GameState(
             # players={},  # dict with `player_id: player_dict` entries
             # Needs to be a dict (not list) to delete objects from game state by key

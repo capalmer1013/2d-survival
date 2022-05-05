@@ -64,6 +64,37 @@ class GameObjectContainer:
         self.GRID[x][y].remove(elem)
 
 
+class Inventory:
+    def __init__(self, l=None):
+        self.items = {}
+        if l:
+            for each in l:
+                self.append(each)
+
+    def getItem(self, index):
+        item = self.items[list(self.items.keys())[index]]
+        if item.amount > 0:
+            item.amount -= 1
+            if item.amount <= 0:
+                self.items.pop(list(self.items.keys())[index], None)
+            return item.__class__
+        return None
+
+    def append(self, item):
+        if type(item) in self.items:
+            self.items[type(item)].amount += item.amount
+        else:
+            self.items[type(item)] = item
+        # if hte list is full just drop it
+        pass
+
+    def dict(self):
+        return {x:self.items[x].amount for x in self.items}
+
+    def get_all(self):
+        return list(self.items.keys())
+
+
 class BaseGameObject:
     U = 16
     V = 0
@@ -94,9 +125,11 @@ class BaseGameObject:
 
 
 class Item(BaseGameObject):
-    def __init__(self, x, y, parent, app):
+    def __init__(self, x, y, parent, app, amount=10, placed=False):
         super().__init__(x, y, parent, app)
         self.ttl = 9000  # 5 minnutes if update gets called 30x/s
+        self.amount = amount
+        self.placed = placed
 
     def update(self):
         self.ttl -= 1
@@ -225,8 +258,6 @@ class Background:
                 #pyxel.pset(x, y, int(pyxel.noise(x, y))%16)
                 pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 
-        pass
-
 
 class UI:
     def __init__(self, relx, rely, parent, app):
@@ -244,25 +275,41 @@ class UI:
         # pyxel.blt(self.relx, self.rely, 0, self.U, self.V, self.w, self.h, 14)
 
 
+class InventoryUI(UI):
+    def __init__(self, relx, rely, parent, app):
+        super().__init__(relx, rely, parent, app)
+
+    def draw(self):
+        if self.parent.placed:
+            # draw inventory, repative to parent
+            inv_dict = self.parent.inventory.dict()
+            count = 1
+            y = 0
+            for each in inv_dict:
+                pyxel.text(self.relx+39, self.rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
+                y += 8
+                count += 1
+            pass
+
+
 class Ammo(Item):
     U = 16
     V = 32
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
-        self.ammoAmmount = 10
+    def __init__(self, x, y, player, app, **kwargs):
+        super().__init__(x, y, player, app, **kwargs)
 
     def collide(self, other):
         if isinstance(other, Player):
             self.is_alive = False
-            other.ammo += self.ammoAmmount
+            other.ammo += self.amount
 
 
 class BuildingMaterial(Item):
-    def __init__(self, x, y, parent, app, placed=False):
-        super().__init__(x, y, parent, app)
+    def __init__(self, x, y, parent, app, placed=False, **kwargs):
+        super().__init__(x, y, parent, app, **kwargs)
         self.app = app
         self.placed = placed
         self.amount = 10
@@ -301,11 +348,55 @@ class BuildingMaterial(Item):
         self.app.score += score
 
 
+class HasInventoryMixin:
+    def scatterInventory(self):
+        for each in self.inventory.get_all():
+            randx, randy = random.randint(-8, 8), random.randint(-8, 8)
+            self.app.gameObjects.append(each(self.x + randx, self.y + randy, self, self.app))
+
+    def takeDamage(self, amount):
+        self.health -= amount
+        if self.health <= 0:  # todo: move this into die function
+            self.is_alive = False
+            self.scatterInventory()
+
+
+class StorageChest(BuildingMaterial, HasInventoryMixin):
+    U = 0
+    V = 24
+    w = 16
+    h = 8
+
+    def __init__(self, x, y, parent, app, placed=False, amount=1):
+        super().__init__(x, y, parent, app)
+        self.placed = placed
+        self.amount = amount
+        self.inventory = Inventory()
+        self.ui = InventoryUI(self.x, self.y, self, self.app)
+
+    def collide(self, other):
+        if isinstance(other, Bullet):
+            self.takeDamage(other.damage)
+
+        if isinstance(other, Item) and not isinstance(other, StorageChest):
+            if other.placed:
+                self.inventory.append(other)
+                self.app.gameObjects.remove(other)
+
+    def draw(self):
+        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+        self.ui.draw()
+
+
 class Brick(BuildingMaterial):
     U = 24
     V = 40
     w = 8
     h = 8
+
+    def __init__(self, x, y, parent, app, placed=False, amount=10):
+        super().__init__(x, y, parent, app, placed=placed, amount=amount)
+        self.amount = amount
 
 
 class Door(BuildingMaterial):
@@ -314,16 +405,18 @@ class Door(BuildingMaterial):
     w = 16
     h = 16
 
-    def __init__(self, x, y, parent, app):
-        super().__init__(x, y, parent, app)
+    def __init__(self, x, y, parent, app, placed=False, **kwargs):
+        super().__init__(x, y, parent, app, **kwargs)
+        self.placed = placed
+        self.amount = 1
 
 
 class Bones(Item):
     U = 16
     V = 48
 
-    def __init__(self, x, y, parent, app):
-        super().__init__(x, y, parent, app)
+    def __init__(self, x, y, parent, app, **kwargs):
+        super().__init__(x, y, parent, app, kwargs)
         self.w = 16
         self.h = 16
 
@@ -331,7 +424,7 @@ class Bones(Item):
         self.is_alive = False
 
 
-class Barrel(Item):
+class Barrel(Item, HasInventoryMixin):
     U = 8
     V = 48
     w = 8
@@ -341,19 +434,11 @@ class Barrel(Item):
         self.health = 100
         #self.contents = [random.choice([Door]) for _ in range(random.randint(1, 6))]
 
-        self.contents = [random.choice([Ammo, Health, Brick, Door]) for _ in range(random.randint(1, 6))]
+        self.inventory = Inventory([random.choice([Ammo, Health, Brick, Door, StorageChest])(0, 0, self, self.app) for _ in range(random.randint(1, 6))])
 
     def collide(self, other):
         if isinstance(other, Bullet):
             self.takeDamage(other.damage)
-
-    def takeDamage(self, amount):
-        self.health -= amount
-        if self.health <= 0:
-            self.is_alive = False
-            for each in self.contents:
-                randx, randy = random.randint(-8, 8), random.randint(-8, 8)
-                self.app.gameObjects.append(each(self.x+randx, self.y+randy, self, self.app))
 
 
 class Food(Item):
@@ -362,8 +447,8 @@ class Food(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, parent, app):
-        super().__init__(x, y, parent, app)
+    def __init__(self, x, y, parent, app, **kwargs):
+        super().__init__(x, y, parent, app, **kwargs)
         self.amount = 50
 
     def collide(self, other):
@@ -377,9 +462,9 @@ class Health(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app, healthAmount=10):
-        super().__init__(x, y, player, app)
-        self.healthAmount = healthAmount
+    def __init__(self, x, y, player, app, amount=10):
+        super().__init__(x, y, player, app, amount=amount)
+        self.amount = amount
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -401,14 +486,14 @@ class Player(Creature):
         super().__init__(x, y, parent, app)
         self.maxHealth = 100
         self.ammo = 10
-        self.bricks = 100
         self.health = self.maxHealth
         self.hunger, self.maxHunger = (100, 100)
         self.damageCount = 0
         self.hungerCount = 0
         self.dieSound, self.damageSound = True, True
         self.bones = 0
-        self.inventory = [Door(self.x, self.y, self, self.app), Door(self.x, self.y, self, self.app)]
+        self.inventory = Inventory()
+        self.getInventory = None
 
     def moveControls(self):
         if pyxel.btn(self.MOVE_LEFT_KEY):
@@ -430,24 +515,44 @@ class Player(Creature):
                 ))
                 pyxel.play(0, 1)
                 self.ammo -= 1
-        if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
-            if self.bricks > 0:
-                self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
-                self.bricks -= 1
+        # if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
+        ## todo: might use this for current selected inventory item on right mouse trigger
+        #     if self.bricks > 0:
+        #         self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
+        #         self.bricks -= 1
 
         if pyxel.btnp(pyxel.KEY_SPACE):
             self.melee()
 
+        inventory_index = None
         if pyxel.btnp(pyxel.KEY_1):
-            tmp = [x for x in self.inventory if isinstance(x, Door)]
-            # todo: the real solution is to implement an inventory class
-            if tmp:
-                # todo: wtf... there must be a better way
-                self.inventory.remove(tmp[0])
-                tmp[0].x, tmp[0].y = int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8
-                tmp[0].placed = True
-                tmp[0].parent = self
-                self.app.gameObjects.append(tmp[0])
+            inventory_index = 0
+        if pyxel.btn(pyxel.KEY_2):
+            inventory_index = 1
+        if pyxel.btnp(pyxel.KEY_3):
+            inventory_index = 2
+        if pyxel.btn(pyxel.KEY_4):
+            inventory_index = 3
+        if pyxel.btnp(pyxel.KEY_5):
+            inventory_index = 4
+        try:
+            if self.getInventory:
+                self.inventory.append(self.getInventory.inventory.getItem(inventory_index)(0, 0, self, self.app, amount=1))
+            else:
+                self.app.gameObjects.append(
+                    self.inventory.getItem(inventory_index)(int(self.app.cursor.x / 8) * 8,
+                                                        int(self.app.cursor.y / 8) * 8,
+                                                        self,
+                                                        self.app,
+                                                        placed=True,
+                                                        amount=1))
+        except TypeError as e:
+            # print(e)
+            pass
+        except IndexError as e:
+            # print(e)
+            pass
+            # inventory should probably be its own class
 
     def update(self):
         self.hungerUpdate()
@@ -464,6 +569,7 @@ class Player(Creature):
         if self.app.scene == SCENE_PLAY:
             self.moveControls()
             self.shootControls()
+        self.getInventory = None
 
     def die(self):
         self.is_alive = False
@@ -479,7 +585,7 @@ class Player(Creature):
 
         if isinstance(other, Brick):
             if not other.placed:
-                self.bricks += other.amount
+                self.inventory.append(other)
                 other.is_alive = False
             else:
                 self.bounceBack(other)
@@ -489,7 +595,7 @@ class Player(Creature):
 
         if isinstance(other, Health):
             if self.health != self.maxHealth:
-                self.heal(other.healthAmount, True)
+                self.heal(other.amount, True)
 
         if isinstance(other, Bones):
             self.bones += 1
@@ -505,6 +611,15 @@ class Player(Creature):
                 if other.parent is not self:
                     self.bounceBack(other)
 
+        if isinstance(other, StorageChest):
+            if not other.placed:
+                self.inventory.append(other)
+                self.app.gameObjects.remove(other)
+            else:
+                if other.parent is not self:
+                    self.bounceBack(other)
+                else:
+                    self.getInventory = other
 
 
 class Bullet(BaseGameObject):
