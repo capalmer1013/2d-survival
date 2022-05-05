@@ -3,8 +3,10 @@
 run game
 - `python main.py`
 build executable
-- `pyinstaller asrm.exe.spec`
+- `python buildExe.py`
 edit assets
+- `pyinstaller --clean asrm.exe.spec`
+cleans the build environment/fix windows recognizing it as a trojan
 - `pyxel edit assets`
 
 # Classes
