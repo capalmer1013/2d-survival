@@ -9,6 +9,9 @@ build executable
 edit assets
 - `pyxel edit assets`
 
+generate UML (requires pylint and something else probably)
+- `pyreverse -o png main gameObjects utils`
+
 # Classes
 _this is subject to change and not be updated for a while. The source code is the only **real** source of truth._
 
