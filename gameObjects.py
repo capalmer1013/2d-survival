@@ -1,3 +1,4 @@
+from collections.abc import MutableMapping
 import random
 from constants import *
 from utils import *
@@ -5,10 +6,10 @@ from utils import *
 BULLETS_FIRED = 0
 
 
-class GameObjectContainer:
+class GameObjectContainer(MutableMapping):
     def __init__(self, pygase_client=None):
         self.pygase_client = pygase_client
-        self.gameList = []
+        self.gameDict = {}
         self.gridw, self.gridh = SCREEN_WIDTH//2, SCREEN_HEIGHT//2
         self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
         self.n = 0
@@ -17,7 +18,11 @@ class GameObjectContainer:
         x, y = self.gridCoord(elem)
         elem.gridCoord = (x, y)
         self.GRID[x][y].append(elem)
-        self.gameList.append(elem)
+        # TODO: centralize key generation
+        object_id = len(self.gameDict)
+        elem.object_id = object_id
+        self.gameDict[object_id] = elem
+        # TODO: ACTUAL TODO - dispatch OBJECT_CREATED event with x,y, only when client does not exist
 
     def getNearbyElements(self, elem):  # todo: rename to more general ie. getCollisionCandidates
         x, y = self.gridCoord(elem)
@@ -28,6 +33,7 @@ class GameObjectContainer:
     def gridCoord(self, elem):
         return int(elem.x/self.gridw), int(elem.y/self.gridh)
 
+    # TODO: rename to something like updateObjectPosition
     def updateObject(self, elem):
         x, y = self.gridCoord(elem)
         if elem not in self.GRID[x][y]:
@@ -42,32 +48,47 @@ class GameObjectContainer:
                     new_position=(elem.x, elem.y)
                 )
 
-    def pop(self, i=None):
-        x, y = self.gameList[i].gridCoord
-        self.GRID[x][y].remove(self.gameList[i])
-        return self.gameList.pop(i)
-
-    def __len__(self):
-        return len(self.gameList)
-
-    def __getitem__(self, item):
-        return self.gameList[item]
-
-    def __iter__(self):
-        self.n = 0
-        return iter(self.gameList)
-
-    def __next__(self):
-        result = self.gameList[self.n]
-        return result
+    def pop(self, object_id=None):
+        x, y = self.gameDict[object_id].gridCoord
+        self.GRID[x][y].remove(self.gameDict[object_id])
+        elem = self.gameDict.pop(object_id)
+        self.pygase_client.dispatch_event(
+            event_type="OBJECT_DELETED",
+            object_id=object_id
+        )
+        return elem
 
     def clear(self):
-        self.gameList.clear()
+        self.gameDict.clear()
 
     def remove(self, elem):
         x, y = self.gridCoord(elem)
-        self.gameList.remove(elem)
         self.GRID[x][y].remove(elem)
+        self.gameDict.pop(elem.object_id)
+
+    def numType(self, t):
+        return len([x for x in self.gameDict.values() if isinstance(x, t)])
+
+    def __len__(self):
+        return len(self.gameDict)
+
+    def __getitem__(self, object_id):
+        return self.gameDict[object_id]
+
+    def __setitem__(self, object_id, value):
+        self.gameDict[object_id] = value
+
+    def __delitem__(self, object_id):
+        del self.gameDict[object_id]
+
+    def __missing__(self, object_id):
+        raise KeyError
+
+    def __iter__(self):
+        return iter(self.gameDict.keys())
+
+    def __contains__(self, object_id):
+        return object_id in self.gameDict
 
 
 class Inventory:
@@ -104,17 +125,16 @@ class Inventory:
 class BaseGameObject:
     U = 16
     V = 0
+
     def __init__(self, x, y, parent, app):
         self.x = x
         self.y = y
         self.parent = parent
         self.app = app
+        self.object_id = None
         self.is_alive = True
         self.moved = False
         self.gridCoord = (0, 0)
-
-    def nearPlayer(self):
-        return self in self.app.gameObjects.getNearbyElements(self.app.player)
 
     def collide(self, other):
         raise NotImplementedError
@@ -131,9 +151,9 @@ class BaseGameObject:
 
 
 class Item(BaseGameObject):
-    def __init__(self, x, y, parent, app, amount=10, placed=False):
-        super().__init__(x, y, parent, app)
-        self.ttl = 9000  # 5 minnutes if update gets called 30x/s
+    def __init__(self, *args, amount=10, placed=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.ttl = 9000  # 5 minutes if update gets called 30x/s
         self.amount = amount
         self.placed = placed
 
@@ -145,23 +165,19 @@ class Item(BaseGameObject):
 
 # make abstract class probably
 class Creature(BaseGameObject):
-    U = 16
-    V = 0
+    w = BASE_BLOCK
+    h = BASE_BLOCK
 
-    def __init__(self, x, y, parent, app, damage=10, maxHunger=100):
-        super().__init__(x, y, parent, app)
-        self.w = BASE_BLOCK
-        self.h = BASE_BLOCK
+    def __init__(self, *args, damage=10, maxHunger=100, **kwargs):
+        super().__init__(*args, **kwargs)
         self.HUNGER_MULTIPLIER = -0.1
         self.dir = [1, 1]
         self.dirtime = 0
         self.health, self.maxHealth = (100, 100)
-        self.is_alive = True
         self.damage = damage
         self.deathClass = Blast
         self.hunger, self.maxHunger = (maxHunger, maxHunger)
         self.hungerCount = 0
-        self.app = app
         self.targetPoint = None
         self.dieSound, self.damageSound = False, False
         self.bones = 0
@@ -176,7 +192,7 @@ class Creature(BaseGameObject):
         self.dirtime += 1
 
     def takeDamage(self, amount):
-        if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
+        if self.app.gameObjects.pygase_client and self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
             pyxel.play(0, 6)
         self.health -= amount
         if self.health <= 0:
@@ -223,10 +239,12 @@ class Creature(BaseGameObject):
         self.takeDamage(other.damage)
 
 
+# TODO: should this inherit from BaseGameObject?
 class Point(BaseGameObject):
+    w, h = 10, 10
+
     def __init__(self, x, y):
         self.x, self.y = x, y
-        self.w, self.h = (10, 10)
 
     def collide(self, other):
         pass
@@ -282,8 +300,8 @@ class UI:
 
 
 class InventoryUI(UI):
-    def __init__(self, relx, rely, parent, app):
-        super().__init__(relx, rely, parent, app)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def draw(self):
         if self.parent.placed:
@@ -304,9 +322,6 @@ class Ammo(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app, **kwargs):
-        super().__init__(x, y, player, app, **kwargs)
-
     def collide(self, other):
         if isinstance(other, Player):
             self.is_alive = False
@@ -314,11 +329,8 @@ class Ammo(Item):
 
 
 class BuildingMaterial(Item):
-    def __init__(self, x, y, parent, app, placed=False, **kwargs):
-        super().__init__(x, y, parent, app, **kwargs)
-        self.app = app
-        self.placed = placed
-        self.amount = 10
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, amount=10, placed=False, **kwargs)
         self.health = 100
         self.damageSound, self.dieSound = True, True
 
@@ -331,7 +343,7 @@ class BuildingMaterial(Item):
             self.health -= amount
             if self.health <= 0:
                 self.die(True)
-            if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
+            if self.app.gameObjects.pygase_client and self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
                 pyxel.play(0, 8)
 
     def update(self):
@@ -373,10 +385,8 @@ class StorageChest(BuildingMaterial, HasInventoryMixin):
     w = 16
     h = 8
 
-    def __init__(self, x, y, parent, app, placed=False, amount=1):
-        super().__init__(x, y, parent, app)
-        self.placed = placed
-        self.amount = amount
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, amount=1, **kwargs)
         self.inventory = Inventory()
         self.ui = InventoryUI(self.x, self.y, self, self.app)
 
@@ -400,9 +410,8 @@ class Brick(BuildingMaterial):
     w = 8
     h = 8
 
-    def __init__(self, x, y, parent, app, placed=False, amount=10):
-        super().__init__(x, y, parent, app, placed=placed, amount=amount)
-        self.amount = amount
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, placed=False, amount=10, **kwargs)
 
 
 class Door(BuildingMaterial):
@@ -411,20 +420,15 @@ class Door(BuildingMaterial):
     w = 16
     h = 16
 
-    def __init__(self, x, y, parent, app, placed=False, **kwargs):
-        super().__init__(x, y, parent, app, **kwargs)
-        self.placed = placed
-        self.amount = 1
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, amount=1, **kwargs)
 
 
 class Bones(Item):
     U = 16
     V = 48
-
-    def __init__(self, x, y, parent, app, **kwargs):
-        super().__init__(x, y, parent, app, kwargs)
-        self.w = 16
-        self.h = 16
+    w = 16
+    h = 16
 
     def collide(self, other):
         self.is_alive = False
@@ -435,8 +439,9 @@ class Barrel(Item, HasInventoryMixin):
     V = 48
     w = 8
     h = 16
-    def __init__(self, x, y, parent, app):
-        super().__init__(x, y, self, app)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.health = 100
         #self.contents = [random.choice([Door]) for _ in range(random.randint(1, 6))]
 
@@ -453,9 +458,8 @@ class Food(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, parent, app, **kwargs):
-        super().__init__(x, y, parent, app, **kwargs)
-        self.amount = 50
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, amount=50, **kwargs)
 
     def collide(self, other):
         if other != self.parent:
@@ -468,9 +472,8 @@ class Health(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app, amount=10):
-        super().__init__(x, y, player, app, amount=amount)
-        self.amount = amount
+    def __init__(self, *args, amount=10, **kwargs):
+        super().__init__(*args, amount=amount, **kwargs)
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -488,8 +491,8 @@ class Player(Creature):
     MOVE_UP_KEY = pyxel.KEY_W
     MOVE_DOWN_KEY = pyxel.KEY_S
 
-    def __init__(self, x, y, parent, app):
-        super().__init__(x, y, parent, app)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.maxHealth = 100
         self.ammo = 10
         self.health = self.maxHealth
@@ -497,7 +500,6 @@ class Player(Creature):
         self.damageCount = 0
         self.hungerCount = 0
         self.dieSound, self.damageSound = True, True
-        self.bones = 0
         self.inventory = Inventory()
         self.getInventory = None
 
@@ -632,8 +634,8 @@ class Bullet(BaseGameObject):
     w = BULLET_WIDTH
     h = BULLET_HEIGHT
 
-    def __init__(self, x, y, player, app, dir=None, point=None, *args, **kwargs):
-        super().__init__(x, y, player, app)
+    def __init__(self, *args, dir=None, point=None, **kwargs):
+        super().__init__(*args, **kwargs)
         global BULLETS_FIRED # generalize this to count all instances
         BULLETS_FIRED += 1
         if not dir and not point:
@@ -642,10 +644,6 @@ class Bullet(BaseGameObject):
             raise Exception("both dir and point are defined. cmon, now")
 
         self.dirDict = {UP: (0, -1), DOWN: (0, 1), LEFT: (-1, 0), RIGHT: (1, 0)}
-        self.x = x
-        self.y = y
-        self.w = BULLET_WIDTH
-        self.h = BULLET_HEIGHT
         self.is_alive = True
         self.dir = dir
         self.point = point
@@ -678,13 +676,14 @@ class Bullet(BaseGameObject):
             pyxel.play(0, 6)
 
 
+# TODO: fix this to work with multiple players
 class Enemy(Creature):
+    U, V = (random.choice([(32, 16), (48, 16), (48, 32), (48, 48)]))
     w = ENEMY_WIDTH
     h = ENEMY_HEIGHT
 
-    def __init__(self, x, y, parent, app, *args, **kwargs):
-        super().__init__(x, y, parent, app, *args, **kwargs)
-        self.U, self.V = (random.choice([(32, 16), (48, 16), (48, 32), (48, 48)]))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.deathClass = Bones
         self.timer_offset = pyxel.rndi(0, 59)
         self.stepCount = 0
@@ -734,7 +733,7 @@ class Enemy(Creature):
     # use this method in other places when stepping toward random point
     def stepTowardPoint(self, pnt=None):
         if not pnt or not self.targetPoint:
-            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
+            randx, randy = random.randint(0, WORLD_WIDTH), random.randint(0, WORLD_HEIGHT)
             self.targetPoint = Point(randx, randy)
         else:
             self.targetPoint = pnt
@@ -743,7 +742,7 @@ class Enemy(Creature):
     def stateRandomWalk(self):
         self.moved = True
         if not self.targetPoint:
-            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(0, self.app.WORLD_HEIGHT)
+            randx, randy = random.randint(0, WORLD_WIDTH), random.randint(0, WORLD_HEIGHT)
             self.targetPoint = Point(randx, randy)
         if self.stepCount % 120 == 0:
             self.stepCount = 0
@@ -786,12 +785,12 @@ class Enemy(Creature):
 
 
 class Bear(Enemy):
+    U, V = 0, 32
     w = ENEMY_WIDTH
     h = ENEMY_HEIGHT
 
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
-        self.U, self.V = (0, 32)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, *kwargs)
         self.speed = ENEMY_SPEED * 1.5
         self.damage = 15
         self.deathClass = Food
@@ -801,33 +800,26 @@ class Bear(Enemy):
 
 
 class Cursor(BaseGameObject):
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
-        self.x = x
-        self.y = y
-        self.U = 48
-        self.V = 0
-        self.W = 16
-        self.H = 16
-        self.app = app
+    U = 48
+    V = 0
+    w = 16
+    h = 16
 
     def update(self):
-        self.x = pyxel.mouse_x + (self.app.player.x - self.app.SCREEN_WIDTH/2)
-        self.y = pyxel.mouse_y + (self.app.player.y - self.app.SCREEN_HEIGHT/2)
+        self.x = pyxel.mouse_x + (self.app.player.x - SCREEN_WIDTH/2)
+        self.y = pyxel.mouse_y + (self.app.player.y - SCREEN_HEIGHT/2)
 
     def draw(self):
-        pyxel.blt(self.x-8, self.y-8, 0, self.U, self.V, self.W, self.H, 14)
+        pyxel.blt(self.x-8, self.y-8, 0, self.U, self.V, self.w, self.h, 14)
 
     def collide(self, other):
         pass
 
 
-class Blast:
-    def __init__(self, x, y, player, app):
-        self.x = x
-        self.y = y
+class Blast(BaseGameObject):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.radius = BLAST_START_RADIUS
-        self.is_alive = True
 
     def update(self):
         self.radius += 1
@@ -838,3 +830,5 @@ class Blast:
         pyxel.circ(self.x, self.y, self.radius, BLAST_COLOR_IN)
         pyxel.circb(self.x, self.y, self.radius, BLAST_COLOR_OUT)
 
+    def collide(self, other):
+        pass

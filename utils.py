@@ -73,7 +73,7 @@ def cleanup_list(list):
     while i < len(list):
         elem = list[i]
         if not elem.is_alive:
-            list.pop(i)
+            list.pop(elem.object_id)
         else:
             i += 1
 

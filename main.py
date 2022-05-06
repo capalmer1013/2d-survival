@@ -13,7 +13,6 @@ class Client:
         pyxel.load(resource_path("assets.pyxres"))
         self.scene = SCENE_TITLE
         self.score = 0
-        self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
         self.persistentGameObjects.append(self.cursor)
         #self.uiObjects = [UI(-200, 80, self, self)]
@@ -37,6 +36,8 @@ class Client:
         self.pygase_client.register_event_handler('JOINED', self.onJoined)
         self.pygase_client.connect_in_thread(hostname="localhost", port=8000)
         self.pygase_client.dispatch_event('JOIN')
+        self.gameObjects = GameObjectContainer(pygase_client=self.pygase_client)
+
 
         pyxel.run(self.update, self.draw)
 
@@ -52,11 +53,8 @@ class Client:
     def player(self, p):
         self.gameObjects[self.player_object_id] = p
 
-    def onJoined(self, player_object_id, player_object_dict):
-        # TODO: maybe only send x,y coordinates
-        # yea I know it's hacky, but it works. Need to override x,y from the server
-        player = Player(0, 0, self, self)
-        player.__dict__.update(player_object_dict)
+    def onJoined(self, player_object_id, x, y):
+        player = Player(x, y, self, self)
         self.player_object_id = player_object_id
         self.player = player
 
@@ -91,6 +89,7 @@ class Client:
 
     def update_gameover_scene(self):
         # TODO: respawn player somewhere on grid
+        self.player.x, self.player.y = getRandomSpawnCoords()
         pass
         # update_list(self.gameObjects)
         # cleanup_list(self.gameObjects)
@@ -146,41 +145,41 @@ class App:
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
-        self.gameObjects = GameObjectContainer(self)
+        self.gameObjects = GameObjectContainer()
 
         # Networking/pygase
         initial_game_state = GameState(
-            # players={},  # dict with `player_id: player_dict` entries
-            # Needs to be a dict (not list) to delete objects from game state by key
+            # Needs to be a dict (not list) to access objects from game state by key
             gameObjectDicts={},
-            gameStartTimestamp=None,
-            lastSpawnMonotonicTime=None # Should be cast to an integer i.e. seconds
+            # gameStartTimestamp=None,
+            # lastSpawnMonotonicTime=None # Should be cast to an integer i.e. seconds
         )
         self.backend = Backend(initial_game_state, self.timeStep, event_handlers={"MOVE": self.onMove, "JOIN": self.onJoin})
         self.backend.run(hostname="localhost", port=8000)
 
     def timeStep(self, game_state, dt):
-        new_game_state = {}
-        if not game_state.gameObjectDicts:
-            # TODO: Store in new_game_state
-            self.initWorld()
-        if game_state.gameStartTimestamp:
-            lastSpawnMonotonicTime = game_state.lastSpawnMonotonicTime
-            currentMonotonicTime = int(time.monotonic())
-            if (currentMonotonicTime - lastSpawnMonotonicTime) >= 8:
-                # TODO: change to use getRandomGridCoords to instantiate object, maybe re-implement spawn method to add to gameObjects - also dispatch create event?
-                self.spawnInstance(Enemy)
-                self.spawnInstance(Ammo)
-                self.spawnInstance(Health)
-                self.spawnInstance(Brick)
-                new_game_state['lastSpawnMonotonicTime'] = currentMonotonicTime
-            self.collisionDetection()
-            # update_list(self.persistentGameObjects)
-            update_list(self.gameObjects)
-            # cleanup_list(self.persistentGameObjects)
-            cleanup_list(self.gameObjects)
+        return {}
+        # new_game_state = {}
+        # if not game_state.gameObjectDicts:
+        #     # TODO: Store in new_game_state
+        #     self.initWorld()
+        # if game_state.gameStartTimestamp:
+        #     lastSpawnMonotonicTime = game_state.lastSpawnMonotonicTime
+        #     currentMonotonicTime = int(time.monotonic())
+        #     if (currentMonotonicTime - lastSpawnMonotonicTime) >= 8:
+        #         # TODO: change to use getRandomGridCoords to instantiate object, maybe re-implement spawn method to add to gameObjects - also dispatch create event?
+        #         self.spawnInstance(Enemy)
+        #         self.spawnInstance(Ammo)
+        #         self.spawnInstance(Health)
+        #         self.spawnInstance(Brick)
+        #         new_game_state['lastSpawnMonotonicTime'] = currentMonotonicTime
+        #     self.collisionDetection()
+        #     # update_list(self.persistentGameObjects)
+        #     update_list(self.gameObjects)
+        #     # cleanup_list(self.persistentGameObjects)
+        #     cleanup_list(self.gameObjects)
         # TODO: serialize all game objects and send that as update
-        return new_game_state
+        # return new_game_state
 
     def onJoin(self, game_state, client_address, **kwargs):
         print('new player joined')
@@ -188,15 +187,21 @@ class App:
         # TODO: this will have a parent of App, while client will have a parent of Client - make sure that's fine
         player = Player(*getRandomSpawnCoords(Player), self, self)
         self.gameObjects[player_object_id] = player
-        new_game_state = {'gameObjectDicts': {player_object_id: {'type': Player, 'data': player.__dict__}}}
-        if not game_state.gameStartTimestamp:
-            new_game_state['gameStartTimestamp'] = time.time()
-        self.backend.server.dispatch_event("JOINED", player_object_id, player.__dict__, target_client=client_address, retries=1)
+        new_game_state = {'gameObjectDicts': {player_object_id: {'type': Player.__class__.__name__, 'x': player.x, 'y': player.y}}}
+        # if not game_state.gameStartTimestamp:
+        #     new_game_state['gameStartTimestamp'] = time.time()
+        self.backend.server.dispatch_event("JOINED", player_object_id, player.x, player.y, target_client=client_address, retries=1)
         return new_game_state
 
     def onMove(self, player_object_id, x, y, **kwargs):
         # TODO: verify that object is 1) a player 2) the player dispatching the event
         return {'gameObjectDicts': {player_object_id: {'data': {'x': x, 'y': y}}}}
+
+    # TODO: check distance from all players
+    # def spawnInstance(self, T):
+    #     tmp = T(pyxel.rndi(0, WORLD_WIDTH - T.w), pyxel.rndi(0, WORLD_HEIGHT - T.h), self, self)
+    #     if distance(self.player, tmp) > BASE_BLOCK * 4:
+    #         self.gameObjects.append(tmp)
 
     def initWorld(self):
         # TODO: change to return objects
@@ -215,18 +220,16 @@ class App:
         for _ in range(25):
             self.spawnInstance(Barrel)
 
+    # TODO: maybe move this to GameObjectContainer
     def collisionDetection(self):
         for each in self.collisionList:
-            aList = [x for x in self.gameObjects if isinstance(x, each[0])]
+            aList = [x for x in self.gameObjects.values() if isinstance(x, each[0])]
             for a in aList:
                 bList = [x for x in self.gameObjects.getNearbyElements(a) if isinstance(x, each[1])]
                 for b in bList:
                     if a != b and collision(a, b):
                         b.collide(a)
                         a.collide(b)
-
-    def numType(self, t):
-        return len([x for x in self.gameObjects if isinstance(x, t)])
 
 App()
 print('after')
