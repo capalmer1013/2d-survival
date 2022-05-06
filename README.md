@@ -2,13 +2,21 @@
 
 run game
 - `python main.py`
+
 build executable
 - `pyinstaller asrm.exe.spec`
+
 edit assets
 - `pyxel edit assets`
 
 # Classes
 _this is subject to change and not be updated for a while. The source code is the only **real** source of truth._
+
+## packages
+![packages](./packages.png)
+
+## class UML
+![classes](./classes.png)
 
 ## App
 - Top level game app
