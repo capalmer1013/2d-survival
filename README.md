@@ -2,13 +2,24 @@
 
 run game
 - `python main.py`
+
 build executable
 - `pyinstaller asrm.exe.spec`
+
 edit assets
 - `pyxel edit assets`
 
+generate UML (requires pylint and something else probably)
+- `pyreverse -o png main gameObjects utils`
+
 # Classes
 _this is subject to change and not be updated for a while. The source code is the only **real** source of truth._
+
+## packages
+![packages](./packages.png)
+
+## class UML
+![classes](./classes.png)
 
 ## App
 - Top level game app
