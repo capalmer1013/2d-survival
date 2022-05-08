@@ -4,8 +4,8 @@ import pyxel
 from pygase import GameState, Backend, Client as PygaseClient
 from constants import *
 from utils import *
+import event_types
 from gameObjects import *
-
 
 class Client:
     def __init__(self):
@@ -13,6 +13,7 @@ class Client:
         pyxel.load(resource_path("assets.pyxres"))
         self.scene = SCENE_TITLE
         self.score = 0
+        self.cursor = Cursor(0, 0, self.player, self)
         self.persistentGameObjects = []
         self.persistentGameObjects.append(self.cursor)
         #self.uiObjects = [UI(-200, 80, self, self)]
@@ -20,7 +21,6 @@ class Client:
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
         # self.player = Player(*getRandomSpawnCoords(Player), self, self)
         self.player_object_id = None
-        self.cursor = Cursor(0, 0, self.player, self)
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -31,13 +31,15 @@ class Client:
                               SCENE_PLAY: self.draw_play_scene,
                               SCENE_GAMEOVER: self.draw_gameover_scene}
 
-        # Networking/pygase
-        self.pygase_client = PygaseClient()
-        self.pygase_client.register_event_handler('JOINED', self.onJoined)
-        self.pygase_client.connect_in_thread(hostname="localhost", port=8000)
-        self.pygase_client.dispatch_event('JOIN')
-        self.gameObjects = GameObjectContainer(pygase_client=self.pygase_client)
+        # Networking
+        self.event_container = ClientEventContainer(self.create_player)
+        self.event_container.connect()
+        self.gameObjects = GameObjectContainer(event_container=self.event_container)
+        # TODO: this is super messy and needs cleaned up - does this even pass by reference?
+        self.event_container.game_objects = self.gameObjects
 
+        # Join game
+        self.event_container.dispatch(event_types.JOIN)
 
         pyxel.run(self.update, self.draw)
 
@@ -49,14 +51,16 @@ class Client:
             player = None
         return player
 
-    @player.setter
-    def player(self, p):
-        self.gameObjects[self.player_object_id] = p
+    # @player.setter
+    # def player(self, p):
+    #     self.gameObjects[self.player_object_id] = p
 
-    def onJoined(self, player_object_id, x, y):
-        player = Player(x, y, self, self)
-        self.player_object_id = player_object_id
-        self.player = player
+    def create_player(self, player_object_id, position):
+        # Does not use append because the player is not placed on the grid
+        if not self.player:
+            player = Player(*position, self, self, object_id=player_object_id)
+            self.player_object_id = player_object_id
+            self.gameObjects[player_object_id] = player
 
     def update(self):
         self.background.update()
@@ -145,23 +149,16 @@ class App:
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
-        self.gameObjects = GameObjectContainer()
 
-        # Networking/pygase
-        initial_game_state = GameState(
-            # Needs to be a dict (not list) to access objects from game state by key
-            gameObjectDicts={},
-            # gameStartTimestamp=None,
-            # lastSpawnMonotonicTime=None # Should be cast to an integer i.e. seconds
-        )
-        self.backend = Backend(initial_game_state, self.timeStep, event_handlers={"MOVE": self.onMove, "JOIN": self.onJoin})
-        self.backend.run(hostname="localhost", port=8000)
+        self.event_container = ServerEventContainer(self.time_step)
+        self.event_container.listen()
+        self.gameObjects = GameObjectContainer(event_container=self.event_container)
 
-    def timeStep(self, game_state, dt):
+    def time_step(self, game_state, dt):
+        # TODO: spawn things here
         return {}
         # new_game_state = {}
         # if not game_state.gameObjectDicts:
-        #     # TODO: Store in new_game_state
         #     self.initWorld()
         # if game_state.gameStartTimestamp:
         #     lastSpawnMonotonicTime = game_state.lastSpawnMonotonicTime
@@ -178,24 +175,7 @@ class App:
         #     update_list(self.gameObjects)
         #     # cleanup_list(self.persistentGameObjects)
         #     cleanup_list(self.gameObjects)
-        # TODO: serialize all game objects and send that as update
         # return new_game_state
-
-    def onJoin(self, game_state, client_address, **kwargs):
-        print('new player joined')
-        player_object_id = len(game_state.gameObjectDicts)
-        # TODO: this will have a parent of App, while client will have a parent of Client - make sure that's fine
-        player = Player(*getRandomSpawnCoords(Player), self, self)
-        self.gameObjects[player_object_id] = player
-        new_game_state = {'gameObjectDicts': {player_object_id: {'type': Player.__class__.__name__, 'x': player.x, 'y': player.y}}}
-        # if not game_state.gameStartTimestamp:
-        #     new_game_state['gameStartTimestamp'] = time.time()
-        self.backend.server.dispatch_event("JOINED", player_object_id, player.x, player.y, target_client=client_address, retries=1)
-        return new_game_state
-
-    def onMove(self, player_object_id, x, y, **kwargs):
-        # TODO: verify that object is 1) a player 2) the player dispatching the event
-        return {'gameObjectDicts': {player_object_id: {'data': {'x': x, 'y': y}}}}
 
     # TODO: check distance from all players
     # def spawnInstance(self, T):
@@ -203,22 +183,22 @@ class App:
     #     if distance(self.player, tmp) > BASE_BLOCK * 4:
     #         self.gameObjects.append(tmp)
 
-    def initWorld(self):
-        # TODO: change to return objects
-        for _ in range(15):
-            self.spawnInstance(Enemy)
-
-        for _ in range(25):
-            self.spawnInstance(Bear)
-
-        for _ in range(50):
-            self.spawnInstance(Ammo)
-
-        for _ in range(20):
-            self.spawnInstance(Brick)
-
-        for _ in range(25):
-            self.spawnInstance(Barrel)
+    # def initWorld(self):
+    #     # TODO: change to return objects
+    #     for _ in range(15):
+    #         self.spawnInstance(Enemy)
+    #
+    #     for _ in range(25):
+    #         self.spawnInstance(Bear)
+    #
+    #     for _ in range(50):
+    #         self.spawnInstance(Ammo)
+    #
+    #     for _ in range(20):
+    #         self.spawnInstance(Brick)
+    #
+    #     for _ in range(25):
+    #         self.spawnInstance(Barrel)
 
     # TODO: maybe move this to GameObjectContainer
     def collisionDetection(self):

@@ -1,28 +1,132 @@
+from dataclasses import dataclass
 from collections.abc import MutableMapping
 import random
 from constants import *
 from utils import *
+import event_components
+import event_types
+from pygase import GameState, Backend, Client as PygaseClient
+
 
 BULLETS_FIRED = 0
 
 
+class BaseEventContainer:
+    DISPATCH_EVENTS_ALLOWLIST = None
+
+    # Implemented this way (backwards) because if a dispatcher is not registered, it should silently fail
+    def dispatch(self, event_type, *args, **kwargs):
+        if event_type in self.DISPATCH_EVENTS_ALLOWLIST:
+            self._dispatch(event_type, *args, **kwargs)
+
+    def handle_object_created(self, object_type_str, position):
+        # TODO: implement this
+        pass
+
+    def _dispatch(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+# TODO: refactor these into factories or builders
+class ClientEventContainer(BaseEventContainer):
+    DISPATCH_EVENTS_ALLOWLIST = [event_types.JOIN, event_types.MOVE]
+
+    def __init__(self, create_player_func):
+        self.EVENT_HANDLERS = {
+            event_types.JOINED: self.handle_joined,
+            event_types.OBJECT_CREATED: self.handle_object_created
+        }
+        self.create_player_func = create_player_func
+        self.game_objects = None
+        self.pygase_client = PygaseClient()
+        for event_type, handler_func in self.EVENT_HANDLERS.items():
+            self.pygase_client.register_event_handler(event_type, handler_func)
+
+    def connect(self, hostname="localhost", port=8000):
+        self.pygase_client.connect_in_thread(hostname=hostname, port=port)
+
+    def handle_joined(self, player_object_id, position):
+        self.create_player_func(player_object_id, position)
+
+    def _dispatch(self, *args, **kwargs):
+        self.pygase_client.dispatch_event(*args, **kwargs)
+
+
+class ServerEventContainer(BaseEventContainer):
+    DISPATCH_EVENTS_ALLOWLIST = [event_types.MOVE, event_types.OBJECT_CREATED]
+
+    def __init__(self, time_step_func):
+        self.EVENT_HANDLERS = {
+            event_types.JOIN: self.handle_join,
+            event_types.MOVE: self.handle_move,
+            event_types.OBJECT_CREATED: self.handle_object_created
+        }
+        self.game_objects = None
+        # TODO: this game state is not really used right now, should transition away from it and pygase altogether
+        initial_game_state = GameState(
+            # Needs to be a dict (not list) to access objects from game state by key
+            gameObjectDicts={},
+            # gameStartTimestamp=None,
+            # lastSpawnMonotonicTime=None # Should be cast to an integer i.e. seconds
+        )
+        self.pygase_backend = Backend(initial_game_state, time_step_func)
+
+    def listen(self, hostname="localhost", port=8000):
+        self.pygase_backend.run(hostname, port)
+
+    # TODO: these handlers are too tightly coupled with pygase at the moment - need to clean up
+    def handle_join(self, game_state, client_address, **kwargs):
+        print('new player joined')
+        # TODO: does this safely access gameDict? Since this runs in a thread/async
+        player_object_id = self.game_objects.next_object_id
+        # NOTE: client will receive OBJECT_CREATED event because of the use of append
+        # However, state will be reset on the client after JOINED event is dispatched #mvpproblems
+        player = Player(*getRandomSpawnCoords(Player), self, self)
+        self.game_objects[player_object_id] = player
+        self.dispatch(event_types.JOINED, player_object_id, (player.x, player.y), target_client=client_address, retries=1)
+        return {}
+
+    def handle_move(self, player_object_id, position, **kwargs):
+        # TODO: verify that object is 1) a player 2) the player dispatching the event
+        # TODO: verify that a player can move to the spot given
+        # TODO: add event to a queue, drain queue on next iteration of timeStep
+        if player_object_id in self.game_objects:
+            self.game_objects[player_object_id].x, self.game_objects[player_object_id].y = position
+        return {}
+
+    def _dispatch(self, *args, **kwargs):
+        self.pygase_backend.server.dispatch_event(*args, **kwargs)
+
+
 class GameObjectContainer(MutableMapping):
-    def __init__(self, pygase_client=None):
-        self.pygase_client = pygase_client
+    # TODO: handle optional event_container
+    def __init__(self, event_container=None):
+        self.event_container = event_container # Can either be an instance of the client or server container
         self.gameDict = {}
         self.gridw, self.gridh = SCREEN_WIDTH//2, SCREEN_HEIGHT//2
         self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
         self.n = 0
 
+    # TODO: add method to serialize all game objects with their class name and x,y position
+
     def append(self, elem):
         x, y = self.gridCoord(elem)
         elem.gridCoord = (x, y)
         self.GRID[x][y].append(elem)
-        # TODO: centralize key generation
-        object_id = len(self.gameDict)
+        object_id = self.next_object_id
         elem.object_id = object_id
         self.gameDict[object_id] = elem
         # TODO: ACTUAL TODO - dispatch OBJECT_CREATED event with x,y, only when client does not exist
+        self.event_container.dispatch(
+            event_types.OBJECT_CREATED,
+            object_id=elem.object_id,
+            type=elem.__class__.__name__,
+            position=(elem.x, elem.y)
+        )
+
+    @property
+    def next_object_id(self):
+        return len(self.gameDict)
 
     def getNearbyElements(self, elem):  # todo: rename to more general ie. getCollisionCandidates
         x, y = self.gridCoord(elem)
@@ -41,13 +145,10 @@ class GameObjectContainer(MutableMapping):
             oldx, oldy = elem.gridCoord
             self.GRID[oldx][oldy].remove(elem)
             elem.gridCoord = (x, y)
-            if self.pygase_client:
-                self.pygase_client.dispatch_event(
-                    event_type="MOVE",
-                    object_id=elem.object_id,
-                    new_position=(elem.x, elem.y)
-                )
+            if not self.pygase_client:
+                self.event_container.dispatch(event_types.MOVE, object_id=elem.object_id, new_position=(elem.x, elem.y))
 
+    # TODO: maybe combine this with `remove`
     def pop(self, object_id=None):
         x, y = self.gameDict[object_id].gridCoord
         self.GRID[x][y].remove(self.gameDict[object_id])
@@ -90,7 +191,6 @@ class GameObjectContainer(MutableMapping):
     def __contains__(self, object_id):
         return object_id in self.gameDict
 
-
 class Inventory:
     def __init__(self, l=None):
         self.items = {}
@@ -126,12 +226,12 @@ class BaseGameObject:
     U = 16
     V = 0
 
-    def __init__(self, x, y, parent, app):
+    def __init__(self, x, y, parent, app, object_id=None):
         self.x = x
         self.y = y
         self.parent = parent
         self.app = app
-        self.object_id = None
+        self.object_id = object_id
         self.is_alive = True
         self.moved = False
         self.gridCoord = (0, 0)
