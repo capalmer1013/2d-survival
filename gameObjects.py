@@ -19,11 +19,18 @@ class GameObjectContainer:
         self.GRID[x][y].append(elem)
         self.gameList.append(elem)
 
-    def getNearbyElements(self, elem):  # todo: rename to more general ie. getCollisionCandidates
+    def getNearbyElements(self, elem, dist=1):  # todo: rename to more general ie. getCollisionCandidates maybe don't do that since this is being used for occlusion culling too
         x, y = self.gridCoord(elem)
+        relx, rely = int(x-dist), int(y-dist)
         lenx, leny = len(self.GRID), len(self.GRID[x])
         # currently checks up and down adjacent. not diagonal todo: maybe add that... maybe
-        return self.GRID[x][y] + self.GRID[x-1][y] + self.GRID[x+1%lenx][y] + self.GRID[x][y-1] + self.GRID[x][y+1%leny]
+        nearbyElements = []
+        # *2+1 is for making the box a square around the player
+        for i in range(dist*2+1):
+            for j in range(dist*2+1):
+                nearbyElements.extend(self.GRID[(relx+i) % lenx][(rely+j) % leny])
+
+        return nearbyElements
 
     def gridCoord(self, elem):
         return int(elem.x/self.gridw), int(elem.y/self.gridh)
@@ -107,8 +114,8 @@ class BaseGameObject:
         self.moved = False
         self.gridCoord = (0, 0)
 
-    def nearPlayer(self):
-        return self in self.app.gameObjects.getNearbyElements(self.app.player)
+    def nearPlayer(self, *args, **kwargs):
+        return self in self.app.gameObjects.getNearbyElements(self.app.player, *args, **kwargs)
 
     def collide(self, other):
         raise NotImplementedError

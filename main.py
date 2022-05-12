@@ -76,10 +76,11 @@ class App:
         self.sceneUpdateDict[self.scene]()
 
     def collisionDetection(self):
+        currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
         for each in self.collisionList:
-            aList = [x for x in self.gameObjects if isinstance(x, each[0])]
+            aList = [x for x in currentViewGameObjects if isinstance(x, each[0])]
             for a in aList:
-                bList = [x for x in self.gameObjects.getNearbyElements(a) if isinstance(x, each[1])]
+                bList = [x for x in currentViewGameObjects if isinstance(x, each[1])]
                 for b in bList:
                     if a != b and collision(a, b):
                         b.collide(a)
@@ -97,7 +98,6 @@ class App:
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
-        pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
@@ -106,7 +106,7 @@ class App:
         if pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
-        update_list(self.gameObjects)
+        update_list([x for x in self.gameObjects if x.nearPlayer()])
         cleanup_list(self.persistentGameObjects)
         cleanup_list(self.gameObjects)
 
@@ -125,6 +125,7 @@ class App:
     def draw(self):
         relx, rely = self.getRelativeXY()
         pyxel.cls(0)
+        pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
         pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
@@ -144,7 +145,7 @@ class App:
         pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)
 
     def draw_play_scene(self):
-        draw_list(self.gameObjects)
+        draw_list([x for x in self.gameObjects if x.nearPlayer()])
         draw_list(self.persistentGameObjects)
         draw_list(self.uiObjects)
 
