@@ -1,7 +1,4 @@
 import cProfile
-import pyxel
-from constants import *
-from utils import *
 from gameObjects import *
 
 
@@ -55,20 +52,20 @@ class App:
         if distance(self.player, tmp) > BASE_BLOCK * 4:
             self.gameObjects.append(tmp)
 
-    def initWorld(self):
-        for _ in range(15):
+    def initWorld(self, multiplier=1):
+        for _ in range(int(15*multiplier)):
             self.spawnInstance(Enemy)
 
-        for _ in range(25):
+        for _ in range(int(25*multiplier)):
             self.spawnInstance(Bear)
 
-        for _ in range(50):
+        for _ in range(int(50*multiplier)):
             self.spawnInstance(Ammo)
 
-        for _ in range(20):
+        for _ in range(int(20*multiplier)):
             self.spawnInstance(Brick)
 
-        for _ in range(50):
+        for _ in range(int(50*multiplier)):
             self.spawnInstance(Barrel)
 
     def update(self):
@@ -131,7 +128,9 @@ class App:
         pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
         pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
         pyxel.text(relx + 39, rely+24, f"Ammo: {self.player.ammo}", 7)
-        y = 24 + 8
+        # todo: why the heck is player.x and y a float?
+        pyxel.text(relx + 39, rely + 32, f"Coord: {int(self.player.x)}, {int(self.player.y)}", 7)
+        y = 32 + 8
         inv_dict = self.player.inventory.dict()
         count = 1
         for each in inv_dict:
@@ -155,5 +154,6 @@ class App:
         pyxel.text(43, 66, "GAME OVER", 8)
 
 
-App()
-print('after')
+if __name__ == "__main__":
+    App()
+    print('after')

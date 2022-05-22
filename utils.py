@@ -13,7 +13,13 @@ class FakePyxel:
     KEY_W = 0
     KEY_S = 0
     KEY_D = 0
+    KEY_SPACE = 0
     KEY_RETURN = 0
+    KEY_1 = 0
+    KEY_2 = 0
+    KEY_3 = 0
+    KEY_4 = 0
+    KEY_5 = 0
     MOUSE_BUTTON_LEFT = 0
     MOUSE_BUTTON_RIGHT = 0
     width, height = (100, 100)
@@ -50,9 +56,12 @@ class FakePyxel:
         return random.choice([-1, 0, 1])
 
     def run(self, update, draw):
-        for _ in range(10000):
-            update()
+        # for _ in range(10000):
+        #     update()
+        pass
+
     frame_count = property(get_frame_count, set_frame_count)
+
 
 
 if HEADLESS:

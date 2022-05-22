@@ -1,5 +1,4 @@
-import random
-from constants import *
+import uuid
 from utils import *
 
 BULLETS_FIRED = 0
@@ -106,6 +105,7 @@ class BaseGameObject:
     U = 16
     V = 0
     def __init__(self, x, y, parent, app):
+        self.id = uuid.uuid4()
         self.x = x
         self.y = y
         self.parent = parent
@@ -114,6 +114,13 @@ class BaseGameObject:
         self.moved = False
         self.gridCoord = (0, 0)
 
+    def serialize(self):
+        return {"x": self.x, "y": self.y, "id": str(self.id), "type": type(self).__name__}
+
+    @staticmethod
+    def deserialize(obj):
+        return
+
     def nearPlayer(self, *args, **kwargs):
         return self in self.app.gameObjects.getNearbyElements(self.app.player, *args, **kwargs)
 
@@ -121,8 +128,8 @@ class BaseGameObject:
         raise NotImplementedError
 
     def bounceBack(self, other, bounceFactor=0.5):
-        self.x += (self.x - other.x) * bounceFactor
-        self.y += (self.y - other.y) * bounceFactor
+        self.x += int((self.x - other.x) * bounceFactor)
+        self.y += int((self.y - other.y) * bounceFactor)
 
     def update(self):
         pass
