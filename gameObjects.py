@@ -135,7 +135,7 @@ class BaseGameObject:
         pass
 
     def draw(self):
-        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+        self.app.pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
 
 
 class Item(BaseGameObject):
@@ -185,7 +185,7 @@ class Creature(BaseGameObject):
 
     def takeDamage(self, amount):
         if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
-            pyxel.play(0, 6)
+            self.app.pyxel.play(0, 6)
         self.health -= amount
         if self.health <= 0:
             self.die()
@@ -194,7 +194,7 @@ class Creature(BaseGameObject):
         self.is_alive = False
         self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app))
         if self.dieSound:
-            pyxel.play(1, 2)  # todo: distance from player affect volume level
+            self.app.pyxel.play(1, 2)  # todo: distance from player affect volume level
 
     def eat(self, amount):
         self.hungerCount = 0
@@ -204,7 +204,7 @@ class Creature(BaseGameObject):
 
     def heal(self, amount, sound=False):
         self.health = self.health + amount if self.health + amount <= self.maxHealth else self.maxHealth
-        if sound: pyxel.play(0, 7)
+        if sound: self.app.pyxel.play(0, 7)
 
     def hungerUpdate(self):
         self.hungerCount += 1
@@ -222,7 +222,7 @@ class Creature(BaseGameObject):
             hit = True
 
         if hit:
-            pyxel.play(0, 6)
+            self.app.pyxel.play(0, 6)
 
         if self.bones:
             self.bones = max(self.bones-1, 0)
@@ -250,7 +250,8 @@ class Background:
     U = 32
     V = 32
 
-    def __init__(self, width, height):
+    def __init__(self, width, height, app):
+        self.app = app
         self.tiles = []  # [[(int, int)]]
         self.width = width * WORLD_MULTIPLIER
         self.height = height * WORLD_MULTIPLIER
@@ -270,7 +271,7 @@ class Background:
         for x in range(self.width):
             for y in range(self.height):
                 #pyxel.pset(x, y, int(pyxel.noise(x, y))%16)
-                pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
+                self.app.pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 
 
 class UI:
@@ -285,7 +286,7 @@ class UI:
         pass
 
     def draw(self):
-        pyxel.rect(self.app.player.x + self.relx, self.app.player.y + self.rely, self.w, self.h, 13)
+        self.app.pyxel.rect(self.app.player.x + self.relx, self.app.player.y + self.rely, self.w, self.h, 13)
         # pyxel.blt(self.relx, self.rely, 0, self.U, self.V, self.w, self.h, 14)
 
 
@@ -300,7 +301,7 @@ class InventoryUI(UI):
             count = 1
             y = 0
             for each in inv_dict:
-                pyxel.text(self.relx+39, self.rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
+                self.app.pyxel.text(self.relx+39, self.rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
                 y += 8
                 count += 1
             pass
@@ -340,7 +341,7 @@ class BuildingMaterial(Item):
             if self.health <= 0:
                 self.die(True)
             if self.damageSound and self in self.app.gameObjects.getNearbyElements(self.app.player):
-                pyxel.play(0, 8)
+                self.app.pyxel.play(0, 8)
 
     def update(self):
         self.ttl -= 1
@@ -351,14 +352,14 @@ class BuildingMaterial(Item):
         if self.placed:
             super().draw()
         else:
-            if pyxel.frame_count % 3 != 0:
+            if self.app.pyxel.frame_count % 3 != 0:
                 super().draw()
 
     def die(self, sound=False, score=0):
         self.is_alive = False
         self.app.gameObjects.append(Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2, self, self.app))
         if sound:
-            pyxel.play(1, 2)
+            self.app.pyxel.play(1, 2)
         self.app.score += score
 
 
@@ -398,7 +399,7 @@ class StorageChest(BuildingMaterial, HasInventoryMixin):
                 self.app.gameObjects.remove(other)
 
     def draw(self):
-        pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
+        self.app.pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
         self.ui.draw()
 
 
@@ -426,8 +427,8 @@ class Door(BuildingMaterial):
 
 
 class Bones(Item):
-    U = 16
-    V = 48
+    U = 0
+    V = 64
 
     def __init__(self, x, y, parent, app, **kwargs):
         super().__init__(x, y, parent, app, kwargs)
@@ -491,10 +492,6 @@ class Player(Creature):
     V = 16
     w = PLAYER_WIDTH
     h = PLAYER_HEIGHT
-    MOVE_LEFT_KEY = pyxel.KEY_A
-    MOVE_RIGHT_KEY = pyxel.KEY_D
-    MOVE_UP_KEY = pyxel.KEY_W
-    MOVE_DOWN_KEY = pyxel.KEY_S
 
     def __init__(self, x, y, parent, app):
         super().__init__(x, y, parent, app)
@@ -508,26 +505,30 @@ class Player(Creature):
         self.bones = 0
         self.inventory = Inventory()
         self.getInventory = None
+        self.MOVE_LEFT_KEY = self.app.pyxel.KEY_A
+        self.MOVE_RIGHT_KEY = self.app.pyxel.KEY_D
+        self.MOVE_UP_KEY = self.app.pyxel.KEY_W
+        self.MOVE_DOWN_KEY = self.app.pyxel.KEY_S
 
     def moveControls(self):
-        if pyxel.btn(self.MOVE_LEFT_KEY):
+        if self.app.pyxel.btn(self.MOVE_LEFT_KEY):
             self.x -= PLAYER_SPEED
-        if pyxel.btn(self.MOVE_RIGHT_KEY):
+        if self.app.pyxel.btn(self.MOVE_RIGHT_KEY):
             self.x += PLAYER_SPEED
-        if pyxel.btn(self.MOVE_UP_KEY):
+        if self.app.pyxel.btn(self.MOVE_UP_KEY):
             self.y -= PLAYER_SPEED
-        if pyxel.btn(self.MOVE_DOWN_KEY):
+        if self.app.pyxel.btn(self.MOVE_DOWN_KEY):
             self.y += PLAYER_SPEED
         self.app.gameObjects.updateObject(self)
 
     def shootControls(self):
         # shoot
         if self.ammo > 0:
-            if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
+            if self.app.pyxel.btnp(self.app.pyxel.MOUSE_BUTTON_LEFT):
                 self.app.gameObjects.append(Bullet(
                     self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2, self.y - BULLET_HEIGHT / 2, self, self.app, point=Point(self.app.cursor.x, self.app.cursor.y)
                 ))
-                pyxel.play(0, 1)
+                self.app.pyxel.play(0, 1)
                 self.ammo -= 1
         # if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
         ## todo: might use this for current selected inventory item on right mouse trigger
@@ -535,19 +536,19 @@ class Player(Creature):
         #         self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
         #         self.bricks -= 1
 
-        if pyxel.btnp(pyxel.KEY_SPACE):
+        if self.app.pyxel.btnp(self.app.pyxel.KEY_SPACE):
             self.melee()
 
         inventory_index = None
-        if pyxel.btnp(pyxel.KEY_1):
+        if self.app.pyxel.btnp(self.app.pyxel.KEY_1):
             inventory_index = 0
-        if pyxel.btn(pyxel.KEY_2):
+        if self.app.pyxel.btn(self.app.pyxel.KEY_2):
             inventory_index = 1
-        if pyxel.btnp(pyxel.KEY_3):
+        if self.app.pyxel.btnp(self.app.pyxel.KEY_3):
             inventory_index = 2
-        if pyxel.btn(pyxel.KEY_4):
+        if self.app.pyxel.btn(self.app.pyxel.KEY_4):
             inventory_index = 3
-        if pyxel.btnp(pyxel.KEY_5):
+        if self.app.pyxel.btnp(self.app.pyxel.KEY_5):
             inventory_index = 4
         try:
             if self.getInventory:
@@ -575,9 +576,9 @@ class Player(Creature):
         self.moved = False
         # check for player boundary collision
         self.x = max(self.x, 0)
-        self.x = min(self.x, WORLD_MULTIPLIER * pyxel.width - self.w)
+        self.x = min(self.x, WORLD_MULTIPLIER * self.app.pyxel.width - self.w)
         self.y = max(self.y, 0)
-        self.y = min(self.y, WORLD_MULTIPLIER * pyxel.height - self.h)
+        self.y = min(self.y, WORLD_MULTIPLIER * self.app.pyxel.height - self.h)
 
         # move player
         if self.app.scene == SCENE_PLAY:
@@ -588,7 +589,7 @@ class Player(Creature):
     def die(self):
         self.is_alive = False
         self.app.gameObjects.append(self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app))
-        pyxel.play(0, 0)
+        self.app.pyxel.play(0, 0)
         self.app.scene = SCENE_GAMEOVER
         self.health = 100
 
@@ -678,12 +679,12 @@ class Bullet(BaseGameObject):
             self.current_speed -= 1
 
     def draw(self):
-        pyxel.rect(self.x, self.y, self.w, self.h, BULLET_COLOR)
+        self.app.pyxel.rect(self.x, self.y, self.w, self.h, BULLET_COLOR)
 
     def collide(self, other):
         self.is_alive = False
         if isinstance(other, Creature):
-            pyxel.play(0, 6)
+            self.app.pyxel.play(0, 6)
 
 
 class Enemy(Creature):
@@ -694,7 +695,7 @@ class Enemy(Creature):
         super().__init__(x, y, parent, app, *args, **kwargs)
         self.U, self.V = (random.choice([(32, 16), (48, 16), (48, 32), (48, 48)]))
         self.deathClass = Bones
-        self.timer_offset = pyxel.rndi(0, 59)
+        self.timer_offset = self.app.pyxel.rndi(0, 59)
         self.stepCount = 0
         self.state = self.stateInit
         self.targetPoint = Point(random.randint(0, BASE_BLOCK*BLOCK_WIDTH), random.randint(0, BASE_BLOCK+BLOCK_HEIGHT))
@@ -819,11 +820,11 @@ class Cursor(BaseGameObject):
         self.app = app
 
     def update(self):
-        self.x = pyxel.mouse_x + (self.app.player.x - self.app.SCREEN_WIDTH/2)
-        self.y = pyxel.mouse_y + (self.app.player.y - self.app.SCREEN_HEIGHT/2)
+        self.x = self.app.pyxel.mouse_x + (self.app.player.x - self.app.SCREEN_WIDTH/2)
+        self.y = self.app.pyxel.mouse_y + (self.app.player.y - self.app.SCREEN_HEIGHT/2)
 
     def draw(self):
-        pyxel.blt(self.x-8, self.y-8, 0, self.U, self.V, self.W, self.H, 14)
+        self.app.pyxel.blt(self.x-8, self.y-8, 0, self.U, self.V, self.W, self.H, 14)
 
     def collide(self, other):
         pass
@@ -842,6 +843,6 @@ class Blast:
             self.is_alive = False
 
     def draw(self):
-        pyxel.circ(self.x, self.y, self.radius, BLAST_COLOR_IN)
-        pyxel.circb(self.x, self.y, self.radius, BLAST_COLOR_OUT)
+        self.app.pyxel.circ(self.x, self.y, self.radius, BLAST_COLOR_IN)
+        self.app.pyxel.circb(self.x, self.y, self.radius, BLAST_COLOR_OUT)
 

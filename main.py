@@ -1,4 +1,6 @@
 import cProfile
+import pyxel
+
 from gameObjects import *
 
 
@@ -8,8 +10,9 @@ class App:
     WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
-    def __init__(self):
-        if not HEADLESS:
+    def __init__(self, headless=False):
+        self.pyxel = pyxel if not headless else FakePyxel()
+        if not headless:
             pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
             pyxel.load(resource_path("assets.pyxres"))
         #pyxel.sound(1).set("a3a2c1a1", "p", "7", "s", 5)
@@ -20,7 +23,7 @@ class App:
         self.persistentGameObjects = []
         #self.uiObjects = [UI(-200, 80, self, self)]
         self.uiObjects = []
-        self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT)
+        self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT, self)
         self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
         self.cursor = Cursor(0, 0, self.player, self)
         self.gameObjects.append(self.player)
@@ -28,6 +31,7 @@ class App:
         self.maxEnemies = 100
         self.numEnemies = 0
         self.numBricks = 0
+
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
