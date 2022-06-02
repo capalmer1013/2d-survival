@@ -4,11 +4,12 @@ import time
 from pygase import GameState, Backend
 import main
 
-# todo: figure out how to make headless assignable on main import
 
 game_cycle_time = 1/30
 
-game = main.App()
+game = main.App(headless=True)
+game.WORLD_HEIGHT = game.SCREEN_HEIGHT
+game.WORLD_WIDTH = game.SCREEN_WIDTH
 game.initWorld(0.05)
 game.scene = main.SCENE_PLAY
 

@@ -10,10 +10,10 @@ class App:
     WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
-    def __init__(self, headless=False):
+    def __init__(self, headless=False, networked=False):
         self.pyxel = pyxel if not headless else FakePyxel()
         if not headless:
-            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Survival Game")
+            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
             pyxel.load(resource_path("assets.pyxres"))
         #pyxel.sound(1).set("a3a2c1a1", "p", "7", "s", 5)
         #pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
@@ -24,7 +24,7 @@ class App:
         #self.uiObjects = [UI(-200, 80, self, self)]
         self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT, self)
-        self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
+        self.player = Player(self.pyxel.width / 2, self.pyxel.height - 20, self, self)
         self.cursor = Cursor(0, 0, self.player, self)
         self.gameObjects.append(self.player)
         self.persistentGameObjects.append(self.cursor)
@@ -49,10 +49,14 @@ class App:
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
-        pyxel.run(self.update, self.draw)
+        if not networked:
+            self.start()
+
+    def start(self):
+        self.pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
-        tmp = T(pyxel.rndi(0, self.WORLD_WIDTH - T.w), pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self.player, self)
+        tmp = T(self.pyxel.rndi(0, self.WORLD_WIDTH - T.w), self.pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self.player, self)
         if distance(self.player, tmp) > BASE_BLOCK * 4:
             self.gameObjects.append(tmp)
 
@@ -99,12 +103,12 @@ class App:
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
-        if pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
+        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         update_list([x for x in self.gameObjects if x.nearPlayer()])
@@ -125,27 +129,27 @@ class App:
 
     def draw(self):
         relx, rely = self.getRelativeXY()
-        pyxel.cls(0)
-        pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
+        self.pyxel.cls(0)
+        self.pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
         self.background.draw()
         self.sceneDrawDict[self.scene]()
-        pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
-        pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
-        pyxel.text(relx + 39, rely+24, f"Ammo: {self.player.ammo}", 7)
+        self.pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
+        self.pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
+        self.pyxel.text(relx + 39, rely+24, f"Ammo: {self.player.ammo}", 7)
         # todo: why the heck is player.x and y a float?
-        pyxel.text(relx + 39, rely + 32, f"Coord: {int(self.player.x)}, {int(self.player.y)}", 7)
+        self.pyxel.text(relx + 39, rely + 32, f"Coord: {int(self.player.x)}, {int(self.player.y)}", 7)
         y = 32 + 8
         inv_dict = self.player.inventory.dict()
         count = 1
         for each in inv_dict:
-            pyxel.text(relx+39, rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
+            self.pyxel.text(relx+39, rely+y, f"[{count}] {each.__name__}(s): {inv_dict[each]}", 7)
             y += 8
             count += 1
             # pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
             # pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
     def draw_title_scene(self):
-        pyxel.text(35, 66, "A Survival Running Man", pyxel.frame_count % 16)
+        self.pyxel.text(35, 66, "Rust2Dust", self.pyxel.frame_count % 16)
 
     def draw_play_scene(self):
         draw_list([x for x in self.gameObjects if x.nearPlayer()])

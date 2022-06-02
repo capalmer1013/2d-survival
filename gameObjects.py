@@ -61,6 +61,9 @@ class GameObjectContainer:
         result = self.gameList[self.n]
         return result
 
+    def __contains__(self, item):
+        return item.id in [x.id for x in self.gameList]
+
     def clear(self):
         self.gameList.clear()
 
@@ -118,8 +121,11 @@ class BaseGameObject:
         return {"x": self.x, "y": self.y, "id": str(self.id), "type": type(self).__name__}
 
     @staticmethod
-    def deserialize(obj):
-        return
+    def deserialize(d, parent, app):
+        # expects the dict provided by serialize
+        tmp = eval(d['type'])(d['x'], d['y'], parent, app)
+        tmp.id = d['id']
+        return tmp
 
     def nearPlayer(self, *args, **kwargs):
         return self in self.app.gameObjects.getNearbyElements(self.app.player, *args, **kwargs)
@@ -431,7 +437,7 @@ class Bones(Item):
     V = 64
 
     def __init__(self, x, y, parent, app, **kwargs):
-        super().__init__(x, y, parent, app, kwargs)
+        super().__init__(x, y, parent, app, **kwargs)
         self.w = 16
         self.h = 16
 
