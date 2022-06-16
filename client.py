@@ -19,29 +19,30 @@ pingTime = 0
 def ping(data):
     global pingTime
     tmp = pingTime
+    print("ping (ms)", (time.time() - tmp) * 1000)
     if tmp:
-        print("ping (ms)", (time.time() - tmp) * 1000)
         pingTime = 0
+
+@sio.event
+def move(data):
+    print(data)
 
 @sio.event
 def connect():
     print('connection established')
 
 @sio.event
-def my_message(data):
-    print('message received with ', data)
-    sio.emit('my response', {'response': 'my response'})
-
-@sio.event
 def disconnect():
     print('disconnected from server')
 
+
+# ===========================
 
 def openConnection():
     sio.connect('http://localhost:5000', wait_timeout = 10)
     sio.wait()
 
-def move():
+def sendMove():
     while True:
         sio.emit("move", {'x': random.randint(0, 100), 'y': random.randint(0, 100)})
         time.sleep(5)
@@ -57,7 +58,7 @@ def sendPing():
 
 
 openConnection_t = threading.Thread(target=openConnection)
-move_t = threading.Thread(target=move)
+move_t = threading.Thread(target=sendMove)
 
 openConnection_t.start()
 time.sleep(10)
