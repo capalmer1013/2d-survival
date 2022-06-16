@@ -1,32 +1,27 @@
 import time
+import threading
+import random
+
 import main
 import gameObjects
-import asyncio
-import socketio
-
-sio = socketio.AsyncClient()
-
-
-# game = main.App(headless=False, networked=True)
-# game.scene = main.SCENE_PLAY
-# game.WORLD_HEIGHT = game.SCREEN_HEIGHT
-# game.WORLD_WIDTH = game.SCREEN_WIDTH
-#
-# def update_play_scene(self):
-#     for each in game_state.__dict__:
-#         print(each)
-#         print(type(each))
-#         print(game_state.__dict__[each])
-#         tmpObj = gameObjects.BaseGameObject.deserialize(each, game.player, game)
-#         if tmpObj not in game.gameObjects:
-#             game.gameObjects.append(tmpObj)
-#
-# game.start()
-
 
 import socketio
 
 sio = socketio.Client()
+
+# move    <->
+# spawn   <->
+
+
+pingTime = 0
+
+@sio.event
+def ping(data):
+    global pingTime
+    tmp = pingTime
+    if tmp:
+        print("ping (ms)", (time.time() - tmp) * 1000)
+        pingTime = 0
 
 @sio.event
 def connect():
@@ -41,7 +36,30 @@ def my_message(data):
 def disconnect():
     print('disconnected from server')
 
-sio.connect('http://localhost:5000')
-sio.wait()
+
+def openConnection():
+    sio.connect('http://localhost:5000', wait_timeout = 10)
+    sio.wait()
+
+def move():
+    while True:
+        sio.emit("move", {'x': random.randint(0, 100), 'y': random.randint(0, 100)})
+        time.sleep(5)
+
+def sendPing():
+    global pingTime
+    pingTime = time.time()
+    sio.emit("ping", time.time())
+    time.sleep(5)
+    if pingTime:
+        print("ping timeout")
+        pingTime = 0
 
 
+openConnection_t = threading.Thread(target=openConnection)
+move_t = threading.Thread(target=move)
+
+openConnection_t.start()
+time.sleep(10)
+move_t.start()
+sendPing()
