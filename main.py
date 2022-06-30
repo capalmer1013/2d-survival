@@ -12,6 +12,8 @@ class App:
 
     def __init__(self, headless=False, networked=False):
         self.pyxel = pyxel if not headless else FakePyxel()
+        self.headless = headless
+        self.networked = networked
         if not headless:
             pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
             pyxel.load(resource_path("assets.pyxres"))
@@ -24,10 +26,11 @@ class App:
         #self.uiObjects = [UI(-200, 80, self, self)]
         self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT, self)
-        self.player = Player(self.pyxel.width / 2, self.pyxel.height - 20, self, self)
-        self.cursor = Cursor(0, 0, self.player, self)
-        self.gameObjects.append(self.player)
-        self.persistentGameObjects.append(self.cursor)
+        if not self.headless:
+            self.player = Player(self.pyxel.width / 2, self.pyxel.height - 20, self, self)
+            self.cursor = Cursor(0, 0, self.player, self)
+            self.gameObjects.append(self.player)
+            self.persistentGameObjects.append(self.cursor)
         self.maxEnemies = 100
         self.numEnemies = 0
         self.numBricks = 0
@@ -49,18 +52,23 @@ class App:
                               (Bullet, Brick), (Bullet, Barrel),
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
-        if not networked:
+        if headless:
             self.start()
+        else:
+            self.initWorld()
 
     def start(self):
         self.pyxel.run(self.update, self.draw)
 
     def spawnInstance(self, T):
-        tmp = T(self.pyxel.rndi(0, self.WORLD_WIDTH - T.w), self.pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self.player, self)
-        if distance(self.player, tmp) > BASE_BLOCK * 4:
+        tmp = T(self.pyxel.rndi(0, self.WORLD_WIDTH - T.w), self.pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self, self)
+        if not self.headless:
+            if distance(self.player, tmp) > BASE_BLOCK * 4:
+                self.gameObjects.append(tmp)
+        else:
             self.gameObjects.append(tmp)
 
-    def initWorld(self, multiplier=1):
+    def initWorld(self, multiplier=10):
         for _ in range(int(15*multiplier)):
             self.spawnInstance(Enemy)
 
@@ -81,7 +89,10 @@ class App:
         self.sceneUpdateDict[self.scene]()
 
     def collisionDetection(self):
-        currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
+        if self.networked:
+            currentViewGameObjects = self.gameObjects
+        else:
+            currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
         for each in self.collisionList:
             aList = [x for x in currentViewGameObjects if isinstance(x, each[0])]
             for a in aList:
@@ -111,18 +122,23 @@ class App:
         if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
-        update_list([x for x in self.gameObjects if x.nearPlayer()])
+        if self.networked:
+            update_list(self.gameObjects)
+        else:
+            update_list([x for x in self.gameObjects if x.nearPlayer()])
         cleanup_list(self.persistentGameObjects)
         cleanup_list(self.gameObjects)
+        if self.networked:
+            self.scene = SCENE_PLAY
 
     def update_gameover_scene(self):
         update_list(self.gameObjects)
         cleanup_list(self.gameObjects)
 
-        if pyxel.btnp(pyxel.KEY_RETURN):
+        if self.pyxel.btnp(self.pyxel.KEY_RETURN):
             self.scene = SCENE_PLAY
-            self.player.x = pyxel.width / 2
-            self.player.y = pyxel.height / 2
+            self.player.x = self.pyxel.width / 2
+            self.player.y = self.pyxel.height / 2
             self.score = 0
             self.gameObjects.clear()
             self.gameObjects.append(self.player)

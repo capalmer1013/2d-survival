@@ -104,7 +104,7 @@ class Inventory:
         return list(self.items.keys())
 
 
-class BaseGameObject:
+class BaseGameObject(dict):
     U = 16
     V = 0
     def __init__(self, x, y, parent, app):
@@ -116,6 +116,7 @@ class BaseGameObject:
         self.is_alive = True
         self.moved = False
         self.gridCoord = (0, 0)
+        dict.__init__(self, **self.serialize())
 
     def serialize(self):
         return {"x": self.x, "y": self.y, "id": str(self.id), "type": type(self).__name__}
@@ -319,8 +320,8 @@ class Ammo(Item):
     w = 8
     h = 8
 
-    def __init__(self, x, y, player, app, **kwargs):
-        super().__init__(x, y, player, app, **kwargs)
+    def __init__(self, x, y, parent, app, **kwargs):
+        super().__init__(x, y, parent, app, **kwargs)
 
     def collide(self, other):
         if isinstance(other, Player):
@@ -766,18 +767,24 @@ class Enemy(Creature):
 
         self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
         self.app.gameObjects.updateObject(self)
-        if self.app.player in self.app.gameObjects.getNearbyElements(self):
-            if distance(self, self.app.player) < self.attackDistance and self.app.player.is_alive:
-                self.stepCount = 0
-                return self.stateAttack
+        if self.app.networked:
+            pass
+        else:
+            if self.app.player in self.app.gameObjects.getNearbyElements(self):
+                if distance(self, self.app.player) < self.attackDistance and self.app.player.is_alive:
+                    self.stepCount = 0
+                    return self.stateAttack
         return self.stateRandomWalk
 
     def stateAttack(self):
         self.moved = True
         self.hunger -= 0.1
-        if not self.app.player.is_alive:
+        if self.app.networked:
             return self.stateRandomWalk
-        self.x, self.y, h, w = stepToward(self.app.player, self, self.speed*3)
+        else:
+            if not self.app.player.is_alive:
+                return self.stateRandomWalk
+            self.x, self.y, h, w = stepToward(self.app.player, self, self.speed*3)
         self.app.gameObjects.updateObject(self)
         if self.stepCount > 240:
             self.stepCount = 0
