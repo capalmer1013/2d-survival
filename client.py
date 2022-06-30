@@ -6,6 +6,8 @@ import main
 import gameObjects
 
 import socketio
+import cProfile
+from pyinstrument import Profiler
 
 sio = socketio.Client()
 
@@ -94,4 +96,14 @@ openConnection()
 
 #move_t.start()
 
-game = main.App()
+#cProfile.run('main.App(networked=True)', 'profile.txt')
+
+
+profiler = Profiler()
+profiler.start()
+
+game = main.App(networked=True)
+
+profiler.stop()
+
+profiler.print()

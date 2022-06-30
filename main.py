@@ -10,10 +10,11 @@ class App:
     WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
-    def __init__(self, headless=False, networked=False):
+    def __init__(self, headless=False, networked=False, client=False):
         self.pyxel = pyxel if not headless else FakePyxel()
         self.headless = headless
         self.networked = networked
+        self.client = client
         if not headless:
             pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
             pyxel.load(resource_path("assets.pyxres"))
@@ -53,12 +54,16 @@ class App:
                               (Player, Barrel), (Creature, Door),
                               (Player, StorageChest), (StorageChest, Item)]
         if headless:
-            self.start()
-        else:
             self.initWorld()
+        else:
+            self.start()
+        print("end of __init__ ")
 
     def start(self):
-        self.pyxel.run(self.update, self.draw)
+        try:
+            self.pyxel.run(self.update, self.draw)
+        except:
+            pass
 
     def spawnInstance(self, T):
         tmp = T(self.pyxel.rndi(0, self.WORLD_WIDTH - T.w), self.pyxel.rndi(0, self.WORLD_HEIGHT - T.h), self, self)
@@ -89,10 +94,12 @@ class App:
         self.sceneUpdateDict[self.scene]()
 
     def collisionDetection(self):
-        if self.networked:
+        if self.networked and self.headless:
             currentViewGameObjects = self.gameObjects
-        else:
+        elif not self.client:
             currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
+        else:
+            return
         for each in self.collisionList:
             aList = [x for x in currentViewGameObjects if isinstance(x, each[0])]
             for a in aList:
@@ -114,12 +121,13 @@ class App:
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
-        if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
+        if self.networked and self.headless and not self.cliet:
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Brick)
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Bear)
+            if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Barrel)
         self.collisionDetection()
         update_list(self.persistentGameObjects)
         if self.networked:
