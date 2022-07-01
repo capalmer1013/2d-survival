@@ -274,9 +274,11 @@ class Background:
     def update(self):
         pass
 
-    def draw(self):
-        for x in range(self.width):
-            for y in range(self.height):
+    def draw(self, viewx, viewy):
+        viewx = int(viewx)
+        viewy = int(viewy)
+        for x in range(viewx-4, viewx+BLOCK_WIDTH+8):
+            for y in range(viewy-4, viewy+BLOCK_HEIGHT+8):
                 #pyxel.pset(x, y, int(pyxel.noise(x, y))%16)
                 self.app.pyxel.blt(x*BASE_BLOCK, y*BASE_BLOCK, 0, self.U, self.V, BASE_BLOCK * self.tiles[x][y][0], BASE_BLOCK * self.tiles[x][y][1])
 

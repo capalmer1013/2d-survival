@@ -102,8 +102,14 @@ openConnection()
 profiler = Profiler()
 profiler.start()
 
-game = main.App(networked=True)
+#game = main.App(networked=True, client=True, headless=True)
+main.App(networked=True, client=True)
+# for i in range(100):
+#     if i % 100 == 0:
+#         print(i)
+#     game.update_play_scene()
+#
+# profiler.stop()
+# profiler.print()
 
-profiler.stop()
 
-profiler.print()

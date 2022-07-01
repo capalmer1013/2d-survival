@@ -1,4 +1,5 @@
 import cProfile
+import itertools
 import pyxel
 
 from gameObjects import *
@@ -96,18 +97,17 @@ class App:
     def collisionDetection(self):
         if self.networked and self.headless:
             currentViewGameObjects = self.gameObjects
-        elif not self.client:
+        elif self.client:
             currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
         else:
             return
         for each in self.collisionList:
-            aList = [x for x in currentViewGameObjects if isinstance(x, each[0])]
-            for a in aList:
-                bList = [x for x in currentViewGameObjects if isinstance(x, each[1])]
-                for b in bList:
-                    if a != b and collision(a, b):
-                        b.collide(a)
-                        a.collide(b)
+            collidable_objects = [x for x in currentViewGameObjects if isinstance(x, each[0]) or isinstance(x, each[1])]
+            collide_tuple = itertools.combinations(collidable_objects, 2)
+            for a, b in collide_tuple:
+                if collision(a, b):
+                    b.collide(a)
+                    a.collide(b)
 
     def numType(self, t):
         return len([x for x in self.gameObjects if isinstance(x, t)])
@@ -121,7 +121,7 @@ class App:
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
-        if self.networked and self.headless and not self.cliet:
+        if self.networked and self.headless and not self.client:
             if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
             if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
             if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Health)
@@ -155,7 +155,7 @@ class App:
         relx, rely = self.getRelativeXY()
         self.pyxel.cls(0)
         self.pyxel.camera(self.player.x-self.SCREEN_WIDTH/2, self.player.y - self.SCREEN_HEIGHT/2)
-        self.background.draw()
+        self.background.draw((self.player.x-self.SCREEN_WIDTH/2)/BASE_BLOCK, (self.player.y - self.SCREEN_HEIGHT/2)/BASE_BLOCK)
         self.sceneDrawDict[self.scene]()
         self.pyxel.text(relx+39, rely+4, f"Health: {self.player.health}", 7)
         self.pyxel.text(relx+39, rely+16, f"Hunger: {self.player.hunger}", 7)
