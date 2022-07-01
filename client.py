@@ -34,6 +34,7 @@ def game_state_update(data):
     print("==========")
     print("gamestate data:", data)
     print("gamestate len: ", len(data))
+    game.gameObjects.GRID[data['x']][data['y']] = data
 
 @sio.event
 def move(data):
@@ -67,8 +68,8 @@ def sendMove():
         sio.emit("move", {'x': random.randint(0, 100), 'y': random.randint(0, 100)})
         time.sleep(5)
 
-def queryGameState():
-    sio.emit("game_state", {'x': 1, 'y': 2})
+def queryGameState(x, y):
+    sio.emit("game_state", {'x': x, 'y': y})
 
 def sendPing():
     global pingTime
@@ -76,10 +77,10 @@ def sendPing():
     pingTime = time.time()
     sio.emit("ping", {'time': time.time()})
 
+def queryCurrentGrid(game):
+    queryGameState(*game.gameObjects.gridCoord(game.player))
 
-#openConnection_t = threading.Thread(target=openConnection)
-#move_t = threading.Thread(target=sendMove)
-#openConnection_t.start()
+gameState_t = threading.Thread(target=queryCurrentGrid)
 loop = True
 openConnection()
 # while loop:
@@ -96,20 +97,6 @@ openConnection()
 
 #move_t.start()
 
-#cProfile.run('main.App(networked=True)', 'profile.txt')
-
-
-profiler = Profiler()
-profiler.start()
-
-#game = main.App(networked=True, client=True, headless=True)
-main.App(networked=True, client=True)
-# for i in range(100):
-#     if i % 100 == 0:
-#         print(i)
-#     game.update_play_scene()
-#
-# profiler.stop()
-# profiler.print()
+game = main.App(networked=True, client=True, gameStateQuery=queryCurrentGrid)
 
 

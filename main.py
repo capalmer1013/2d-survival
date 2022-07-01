@@ -11,7 +11,8 @@ class App:
     WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
-    def __init__(self, headless=False, networked=False, client=False):
+    def __init__(self, headless=False, networked=False, client=False, gameStateQuery=None):
+        self.gameStateQuery = gameStateQuery
         self.pyxel = pyxel if not headless else FakePyxel()
         self.headless = headless
         self.networked = networked
@@ -117,10 +118,12 @@ class App:
 
     def update_title_scene(self):
         if pyxel.btnp(pyxel.KEY_RETURN):
-            self.initWorld()
+            # self.initWorld()
             self.scene = SCENE_PLAY
 
     def update_play_scene(self):
+        if self.gameStateQuery:
+            self.gameStateQuery(self)
         if self.networked and self.headless and not self.client:
             if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Enemy)
             if self.pyxel.frame_count % 240 == 0: self.spawnInstance(Ammo)
