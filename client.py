@@ -7,7 +7,6 @@ import gameObjects
 
 import socketio
 import cProfile
-from pyinstrument import Profiler
 
 sio = socketio.Client()
 
@@ -34,7 +33,7 @@ def game_state_update(data):
     print("==========")
     print("gamestate data:", data)
     print("gamestate len: ", len(data))
-    game.gameObjects.GRID[data['x']][data['y']] = data
+    # game.gameObjects.GRID[data['x']][data['y']] = data
 
 @sio.event
 def move(data):
