@@ -1,0 +1,11 @@
+[Unit]
+Description=Run the game server
+
+[Service]
+Type=simple
+ExecStart=/bin/bash /root/2d-survival/start_server.sh
+
+[Install]
+WantedBy=multi-user.target
+
+
