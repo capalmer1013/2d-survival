@@ -728,13 +728,13 @@ class Bullet(BaseGameObject):
     w = BULLET_WIDTH
     h = BULLET_HEIGHT
 
-    def __init__(self, x, y, player, app, dir=None, point=None, *args, **kwargs):
+    def __init__(self, x, y, player, app, direction=None, point=None, *args, **kwargs):
         super().__init__(x, y, player, app)
         global BULLETS_FIRED  # generalize this to count all instances
         BULLETS_FIRED += 1
-        if not dir and not point:
+        if direction is None and point is None:
             raise Exception("both dir and point undefined. todo: fix this")
-        if dir and point:
+        if direction and point:
             raise Exception("both dir and point are defined. cmon, now")
 
         self.dirDict = {UP: (0, -1), DOWN: (0, 1), LEFT: (-1, 0), RIGHT: (1, 0)}
@@ -743,7 +743,7 @@ class Bullet(BaseGameObject):
         self.w = BULLET_WIDTH
         self.h = BULLET_HEIGHT
         self.is_alive = True
-        self.dir = dir
+        self.dir = direction
         self.point = point
         self.maxDistance = 40
         self.distance = 0
@@ -753,12 +753,12 @@ class Bullet(BaseGameObject):
 
     def update(self):
         self.moved = True
-        if self.dir:
+        if self.dir is not None:
             self.x, self.y = (
                 self.x + self.current_speed * self.dirDict[self.dir][0],
                 self.y + self.current_speed * self.dirDict[self.dir][1],
             )
-        if self.point:
+        if self.point is not None:
             self.x, self.y, _, _ = stepToward(self.point, self, self.current_speed)
             if collision(self, self.point):
                 self.is_alive = False
@@ -834,13 +834,13 @@ class Enemy(Creature):
             key=lambda x: distance(self, x),
         )
         if nearbyFood:
-            self.stepTowardPoint(nearbyFood[0])
+            self.step_toward_point(nearbyFood[0])
         else:
             self.stateRandomWalk()
         return self.stateLookForFood
 
     # use this method in other places when stepping toward random point
-    def stepTowardPoint(self, pnt=None):
+    def step_toward_point(self, pnt=None):
         if not pnt or not self.targetPoint:
             randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(
                 0, self.app.WORLD_HEIGHT
@@ -866,27 +866,21 @@ class Enemy(Creature):
 
         self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
         self.app.gameObjects.updateObject(self)
-        if self.app.networked:
-            pass
-        else:
-            if self.app.player in self.app.gameObjects.getNearbyElements(self):
-                if (
-                    distance(self, self.app.player) < self.attackDistance
-                    and self.app.player.is_alive
-                ):
-                    self.stepCount = 0
-                    return self.stateAttack
+        if self.app.player in self.app.gameObjects.getNearbyElements(self):
+            if (
+                distance(self, self.app.player) < self.attackDistance
+                and self.app.player.is_alive
+            ):
+                self.stepCount = 0
+                return self.stateAttack
         return self.stateRandomWalk
 
     def stateAttack(self):
         self.moved = True
         self.hunger -= 0.1
-        if self.app.networked:
+        if not self.app.player.is_alive:
             return self.stateRandomWalk
-        else:
-            if not self.app.player.is_alive:
-                return self.stateRandomWalk
-            self.x, self.y, h, w = stepToward(self.app.player, self, self.speed * 3)
+        self.x, self.y, h, w = stepToward(self.app.player, self, self.speed * 3)
         self.app.gameObjects.updateObject(self)
         if self.stepCount > 240:
             self.stepCount = 0
@@ -953,12 +947,17 @@ class Cursor(BaseGameObject):
         pass
 
 
-class Blast:
+class Blast(BaseGameObject):
     def __init__(self, x, y, player, app):
         self.x = x
         self.y = y
         self.radius = BLAST_START_RADIUS
         self.is_alive = True
+        self.player = player
+        self.app = app
+
+    def collide(self, other):
+        pass
 
     def update(self):
         self.radius += 1

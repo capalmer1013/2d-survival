@@ -19,12 +19,10 @@ class App:
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
     def __init__(
-        self, headless=False, networked=False, client=False, gameStateQuery=None
+        self, client=False, game_state_query=None
     ):
-        self.gameStateQuery = gameStateQuery
-        self.pyxel = pyxel if not headless else FakePyxel()
-        self.headless = headless
-        self.networked = networked
+        self.gameStateQuery = game_state_query
+        self.pyxel = pyxel
         self.client = client
         self.scene = SCENE_TITLE
         self.score = 0
@@ -36,17 +34,16 @@ class App:
         self.numEnemies = 0
         self.numBricks = 0
 
-        if not headless:
-            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
-            pyxel.load(resource_path("assets.pyxres"))
 
-        if not self.headless:
-            self.player = Player(
-                self.pyxel.width / 2, self.pyxel.height - 20, self, self
-            )
-            self.cursor = Cursor(0, 0, self.player, self)
-            self.gameObjects.append(self.player)
-            self.persistentGameObjects.append(self.cursor)
+        pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
+        pyxel.load(resource_path("assets.pyxres"))
+
+        self.player = Player(
+            self.pyxel.width / 2, self.pyxel.height - 20, self, self
+        )
+        self.cursor = Cursor(0, 0, self.player, self)
+        self.gameObjects.append(self.player)
+        self.persistentGameObjects.append(self.cursor)
 
         # config
         self.sceneUpdateDict = {
@@ -78,10 +75,8 @@ class App:
             (Player, StorageChest),
             (StorageChest, Item),
         ]
-        if headless:
-            self.initWorld()
-        else:
-            self.start()
+        self.initWorld()
+        self.start()
 
     def start(self):
         try:
@@ -96,11 +91,9 @@ class App:
             self,
             self,
         )
-        if not self.headless:
-            if distance(self.player, tmp) > BASE_BLOCK * 4:
-                self.gameObjects.append(tmp)
-        else:
+        if distance(self.player, tmp) > BASE_BLOCK * 4:
             self.gameObjects.append(tmp)
+
 
     def initWorld(self, multiplier=10):
         for _ in range(int(15 * multiplier)):
@@ -122,17 +115,12 @@ class App:
         self.background.update()
         self.sceneUpdateDict[self.scene]()
 
-    def collisionDetection(self):
-        if self.networked and self.headless:
-            currentViewGameObjects = self.gameObjects
-        elif self.client:
-            currentViewGameObjects = [x for x in self.gameObjects if x.nearPlayer()]
-        else:
-            return
+    def collision_detection(self):
+        current_view_game_objects = [x for x in self.gameObjects if x.nearPlayer()]
         for each in self.collisionList:
             collidable_objects = [
                 x
-                for x in currentViewGameObjects
+                for x in current_view_game_objects
                 if isinstance(x, each[0]) or isinstance(x, each[1])
             ]
             collide_tuple = itertools.combinations(collidable_objects, 2)
@@ -158,29 +146,11 @@ class App:
     def update_play_scene(self):
         if self.gameStateQuery:
             self.gameStateQuery(self)
-        if self.networked and self.headless and not self.client:
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Enemy)
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Ammo)
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Health)
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Brick)
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Bear)
-            if self.pyxel.frame_count % 240 == 0:
-                self.spawnInstance(Barrel)
-        self.collisionDetection()
+        self.collision_detection()
         update_list(self.persistentGameObjects)
-        if self.networked:
-            update_list(self.gameObjects)
-        else:
-            update_list([x for x in self.gameObjects if x.nearPlayer()])
+        update_list([x for x in self.gameObjects if x.nearPlayer()])
         cleanup_list(self.persistentGameObjects)
         cleanup_list(self.gameObjects)
-        if self.networked:
-            self.scene = SCENE_PLAY
 
     def update_gameover_scene(self):
         update_list(self.gameObjects)
@@ -246,5 +216,5 @@ class App:
 
 
 if __name__ == "__main__":
-    App(headless=False)
+    App()
     print("after")

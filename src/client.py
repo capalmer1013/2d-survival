@@ -111,4 +111,4 @@ while loop:
 
 # move_t.start()
 
-game = main.App(networked=True, client=True, gameStateQuery=queryCurrentGrid)
+game = main.App(networked=True, client=True, game_state_query=queryCurrentGrid)
