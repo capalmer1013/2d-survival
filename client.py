@@ -15,7 +15,8 @@ sio = socketio.Client()
 
 
 pingTime = 0
-
+#GAME_SERVER = 'http://localhost:5000'
+GAME_SERVER = 'http://2dsurvival.com:5000'
 @sio.on('*')
 def catch_all(event, data):
     print("==============")
@@ -57,7 +58,7 @@ def disconnect():
 # ===========================
 
 def openConnection():
-    sio.connect('http://localhost:5000', wait_timeout = 10)
+    sio.connect(GAME_SERVER, wait_timeout = 10)
     #sio.wait()
 
 
@@ -82,17 +83,18 @@ def queryCurrentGrid(game):
 gameState_t = threading.Thread(target=queryCurrentGrid)
 loop = True
 openConnection()
-# while loop:
-#     choice = input("q: quit, p: ping, s: sid, g: game state")
-#     if choice.lower() == "p":
-#         sendPing()
-#     elif choice.lower() == "g":
-#         queryGameState()
-#     elif choice.lower() == "s":
-#         print(sio.sid)
-#     elif choice.lower() == "q":
-#         loop = False
-
+"""
+while loop:
+    choice = input("q: quit, p: ping, s: sid, g: game state")
+    if choice.lower() == "p":
+        sendPing()
+    elif choice.lower() == "g":
+        queryGameState()
+    elif choice.lower() == "s":
+        print(sio.sid)
+    elif choice.lower() == "q":
+        loop = False
+"""
 
 #move_t.start()
 

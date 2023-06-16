@@ -190,5 +190,5 @@ class App:
 
 
 if __name__ == "__main__":
-    App()
+    App(headless=True)
     print('after')
