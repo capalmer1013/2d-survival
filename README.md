@@ -1,5 +1,18 @@
 # 2d-survival
 
+
+## Getting started
+
+- get python 3.11+ however y'all get it
+- `python -m venv 2dsurvival`
+*on linux*
+- `source 2dsurvival/Scripts/activate`
+*on windows*
+- `2dsurvival\Scripts\activate.bat`
+
+- `pip install -r requirements.txt`
+
+## Useful commands
 run game
 - `python main.py`
 

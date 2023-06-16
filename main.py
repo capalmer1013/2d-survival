@@ -17,27 +17,25 @@ class App:
         self.headless = headless
         self.networked = networked
         self.client = client
-        if not headless:
-            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
-            pyxel.load(resource_path("assets.pyxres"))
-        #pyxel.sound(1).set("a3a2c1a1", "p", "7", "s", 5)
-        #pyxel.sound(2).set("a3a2c2c2", "n", "7742", "s", 10)
         self.scene = SCENE_TITLE
         self.score = 0
         self.gameObjects = GameObjectContainer(self)
         self.persistentGameObjects = []
-        #self.uiObjects = [UI(-200, 80, self, self)]
         self.uiObjects = []
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT, self)
+        self.maxEnemies = 100
+        self.numEnemies = 0
+        self.numBricks = 0
+
+        if not headless:
+            pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
+            pyxel.load(resource_path("assets.pyxres"))
+
         if not self.headless:
             self.player = Player(self.pyxel.width / 2, self.pyxel.height - 20, self, self)
             self.cursor = Cursor(0, 0, self.player, self)
             self.gameObjects.append(self.player)
             self.persistentGameObjects.append(self.cursor)
-        self.maxEnemies = 100
-        self.numEnemies = 0
-        self.numBricks = 0
-
 
         # config
         self.sceneUpdateDict = {SCENE_TITLE: self.update_title_scene,
@@ -190,5 +188,5 @@ class App:
 
 
 if __name__ == "__main__":
-    App(headless=True)
+    App(headless=False)
     print('after')
