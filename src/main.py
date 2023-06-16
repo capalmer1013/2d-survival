@@ -1,4 +1,3 @@
-import cProfile
 import itertools
 
 import pyxel
@@ -6,7 +5,7 @@ import pyxel
 from gameObjects import (BASE_BLOCK, BLOCK_HEIGHT, BLOCK_WIDTH, SCENE_GAMEOVER,
                          SCENE_PLAY, SCENE_TITLE, WORLD_MULTIPLIER, Ammo,
                          Background, Barrel, Bear, Bones, Brick, Bullet,
-                         Creature, Cursor, Door, Enemy, FakePyxel, Food,
+                         Creature, Cursor, Door, Enemy, Food,
                          GameObjectContainer, Health, Item, Player,
                          StorageChest, cleanup_list, collision, distance,
                          draw_list, resource_path, update_list)
@@ -19,7 +18,7 @@ class App:
     WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
 
     def __init__(
-        self, client=False, game_state_query=None
+            self, client=False, game_state_query=None
     ):
         self.gameStateQuery = game_state_query
         self.pyxel = pyxel
@@ -33,7 +32,6 @@ class App:
         self.maxEnemies = 100
         self.numEnemies = 0
         self.numBricks = 0
-
 
         pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
         pyxel.load(resource_path("assets.pyxres"))
@@ -75,16 +73,13 @@ class App:
             (Player, StorageChest),
             (StorageChest, Item),
         ]
-        self.initWorld()
+        self.init_world()
         self.start()
 
     def start(self):
-        try:
-            self.pyxel.run(self.update, self.draw)
-        except:
-            pass
+        self.pyxel.run(self.update, self.draw)
 
-    def spawnInstance(self, T):
+    def spawn_instance(self, T):
         tmp = T(
             self.pyxel.rndi(0, self.WORLD_WIDTH - T.w),
             self.pyxel.rndi(0, self.WORLD_HEIGHT - T.h),
@@ -94,22 +89,21 @@ class App:
         if distance(self.player, tmp) > BASE_BLOCK * 4:
             self.gameObjects.append(tmp)
 
-
-    def initWorld(self, multiplier=10):
+    def init_world(self, multiplier=10):
         for _ in range(int(15 * multiplier)):
-            self.spawnInstance(Enemy)
+            self.spawn_instance(Enemy)
 
         for _ in range(int(25 * multiplier)):
-            self.spawnInstance(Bear)
+            self.spawn_instance(Bear)
 
         for _ in range(int(50 * multiplier)):
-            self.spawnInstance(Ammo)
+            self.spawn_instance(Ammo)
 
         for _ in range(int(20 * multiplier)):
-            self.spawnInstance(Brick)
+            self.spawn_instance(Brick)
 
         for _ in range(int(50 * multiplier)):
-            self.spawnInstance(Barrel)
+            self.spawn_instance(Barrel)
 
     def update(self):
         self.background.update()
@@ -129,10 +123,10 @@ class App:
                     b.collide(a)
                     a.collide(b)
 
-    def numType(self, t):
+    def num_type(self, t):
         return len([x for x in self.gameObjects if isinstance(x, t)])
 
-    def getRelativeXY(self):
+    def get_relative_xy(self):
         return (
             self.player.x - self.SCREEN_WIDTH / 2,
             self.player.y - self.SCREEN_HEIGHT / 2,
@@ -165,7 +159,7 @@ class App:
             self.gameObjects.append(self.player)
 
     def draw(self):
-        relx, rely = self.getRelativeXY()
+        relx, rely = self.get_relative_xy()
         self.pyxel.cls(0)
         self.pyxel.camera(
             self.player.x - self.SCREEN_WIDTH / 2,

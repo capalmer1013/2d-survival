@@ -20,7 +20,7 @@ class GameObjectContainer:
         self.gameList.append(elem)
 
     def getNearbyElements(
-        self, elem, dist=1
+            self, elem, dist=1
     ):  # todo: rename to more general ie. getCollisionCandidates maybe don't do that since this is being used for occlusion culling too
         x, y = self.gridCoord(elem)
         relx, rely = int(x - dist), int(y - dist)
@@ -203,7 +203,7 @@ class Creature(BaseGameObject):
 
     def takeDamage(self, amount):
         if self.damageSound and self in self.app.gameObjects.getNearbyElements(
-            self.app.player
+                self.app.player
         ):
             self.app.pyxel.play(0, 6)
         self.health -= amount
@@ -251,8 +251,8 @@ class Creature(BaseGameObject):
             x
             for x in self.app.gameObjects.getNearbyElements(self)
             if distance(x, self) < BASE_BLOCK * 2
-            and isinstance(x, Creature)
-            and x is not self
+               and isinstance(x, Creature)
+               and x is not self
         ]:
             self.bounceBack(nearby)
             nearby.takeDamage(self.damage + self.bones)
@@ -399,7 +399,7 @@ class BuildingMaterial(Item):
             if self.health <= 0:
                 self.die(True)
             if self.damageSound and self in self.app.gameObjects.getNearbyElements(
-                self.app.player
+                    self.app.player
             ):
                 self.app.pyxel.play(0, 8)
 
@@ -608,11 +608,6 @@ class Player(Creature):
                 )
                 self.app.pyxel.play(0, 1)
                 self.ammo -= 1
-        # if pyxel.btnp(pyxel.MOUSE_BUTTON_RIGHT):
-        ## todo: might use this for current selected inventory item on right mouse trigger
-        #     if self.bricks > 0:
-        #         self.app.gameObjects.append(Brick(int(self.app.cursor.x/8)*8, int(self.app.cursor.y/8)*8, self, self.app, placed=True))
-        #         self.bricks -= 1
 
         if self.app.pyxel.btnp(self.app.pyxel.KEY_SPACE):
             self.melee()
@@ -868,8 +863,8 @@ class Enemy(Creature):
         self.app.gameObjects.updateObject(self)
         if self.app.player in self.app.gameObjects.getNearbyElements(self):
             if (
-                distance(self, self.app.player) < self.attackDistance
-                and self.app.player.is_alive
+                    distance(self, self.app.player) < self.attackDistance
+                    and self.app.player.is_alive
             ):
                 self.stepCount = 0
                 return self.stateAttack
@@ -932,10 +927,10 @@ class Cursor(BaseGameObject):
 
     def update(self):
         self.x = self.app.pyxel.mouse_x + (
-            self.app.player.x - self.app.SCREEN_WIDTH / 2
+                self.app.player.x - self.app.SCREEN_WIDTH / 2
         )
         self.y = self.app.pyxel.mouse_y + (
-            self.app.player.y - self.app.SCREEN_HEIGHT / 2
+                self.app.player.y - self.app.SCREEN_HEIGHT / 2
         )
 
     def draw(self):
