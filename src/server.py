@@ -1,10 +1,12 @@
 import math
 import pickle
-import time
 import threading
-import main
+import time
+
 import eventlet
 import socketio
+
+import main
 
 # game setup
 game = main.App(headless=True, networked=True, client=False)

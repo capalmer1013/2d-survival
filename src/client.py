@@ -1,12 +1,12 @@
-import time
-import threading
+import cProfile
 import random
-
-import main
-import gameObjects
+import threading
+import time
 
 import socketio
-import cProfile
+
+import gameObjects
+import main
 
 sio = socketio.Client()
 

@@ -1,4 +1,5 @@
 import uuid
+
 from utils import *
 
 BULLETS_FIRED = 0

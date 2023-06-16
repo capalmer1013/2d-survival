@@ -1,8 +1,15 @@
 import cProfile
 import itertools
+
 import pyxel
 
-from gameObjects import *
+from gameObjects import (BASE_BLOCK, BLOCK_HEIGHT, BLOCK_WIDTH, SCENE_GAMEOVER,
+                         SCENE_PLAY, SCENE_TITLE, WORLD_MULTIPLIER, Ammo,
+                         Background, Barrel, Bear, Bones, Brick, Bullet,
+                         Creature, Cursor, Door, Enemy, FakePyxel, Food,
+                         GameObjectContainer, Health, Item, Player,
+                         StorageChest, cleanup_list, collision, distance,
+                         draw_list, resource_path, update_list)
 
 
 class App:

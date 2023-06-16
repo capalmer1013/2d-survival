@@ -1,7 +1,8 @@
 import math
-import sys
 import os
 import random
+import sys
+
 from constants import *
 
 
