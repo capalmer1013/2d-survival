@@ -24,7 +24,7 @@ class FakePyxel:
     MOUSE_BUTTON_LEFT = 0
     MOUSE_BUTTON_RIGHT = 0
     width, height = (100, 100)
-    mouse_x, mouse_y = (50 ,50)
+    mouse_x, mouse_y = (50, 50)
 
     def __init__(self):
         self.frameCount = 0
@@ -86,19 +86,27 @@ def cleanup_list(list):
 
 
 def distance(a, b):
-    return math.sqrt(abs(a.x+(a.w/2) - b.x+(b.w/2))**2 + abs(a.y+(a.h/2) - b.y+(b.h/2))**2)
+    return math.sqrt(
+        abs(a.x + (a.w / 2) - b.x + (b.w / 2)) ** 2
+        + abs(a.y + (a.h / 2) - b.y + (b.h / 2)) ** 2
+    )
 
 
 def stepToward(destObj, curObj, speed):
-    deltax = sign(destObj.x - curObj.x)*speed
-    deltay = sign(destObj.y - curObj.y)*speed
+    deltax = sign(destObj.x - curObj.x) * speed
+    deltay = sign(destObj.y - curObj.y) * speed
     # if abs(deltax) > abs(deltay):
     #     deltax = deltax
     #     deltay = 0
     # else:
     #     deltay = deltay
     #     deltax = 0
-    return deltax+curObj.x, deltay+curObj.y, stepFunction(deltax)*-1, stepFunction(deltay) * -1
+    return (
+        deltax + curObj.x,
+        deltay + curObj.y,
+        stepFunction(deltax) * -1,
+        stepFunction(deltay) * -1,
+    )
 
 
 def stepFunction(x):  # todo: remove and refactor uses to use the pyxel sgn(x) func
@@ -109,7 +117,7 @@ def stepFunction(x):  # todo: remove and refactor uses to use the pyxel sgn(x) f
 
 
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
+    """Get absolute path to resource, works for dev and for PyInstaller"""
     try:
         # PyInstaller creates a temp folder and stores path in _MEIPASS
         base_path = sys._MEIPASS

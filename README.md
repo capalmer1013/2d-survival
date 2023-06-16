@@ -2,13 +2,12 @@
 
 
 ## Getting started
-
 - get python 3.11+ however y'all get it
 - `python -m venv 2dsurvival`
 *on linux*
 - `source 2dsurvival/Scripts/activate`
 *on windows*
-- `2dsurvival\Scripts\activate.bat`
+- `just use the system python, windows dev is a disaster`
 
 - `pip install -r requirements.txt`
 
