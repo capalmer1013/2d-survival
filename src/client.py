@@ -1,11 +1,9 @@
-import cProfile
 import random
 import threading
 import time
 
 import socketio
 
-import gameObjects
 import main
 
 sio = socketio.Client()
@@ -111,4 +109,4 @@ while loop:
 
 # move_t.start()
 
-game = main.App(networked=True, client=True, game_state_query=queryCurrentGrid)
+game = main.Game(networked=True, client=True, game_state_query=queryCurrentGrid)

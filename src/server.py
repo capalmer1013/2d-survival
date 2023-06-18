@@ -1,5 +1,3 @@
-import math
-import pickle
 import threading
 import time
 
@@ -9,7 +7,7 @@ import socketio
 import main
 
 # game setup
-game = main.App(headless=True, networked=True, client=False)
+game = main.Game(client=False)
 game.WORLD_HEIGHT = game.SCREEN_HEIGHT
 game.WORLD_WIDTH = game.SCREEN_WIDTH
 game.scene = main.SCENE_PLAY

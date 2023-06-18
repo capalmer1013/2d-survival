@@ -26,3 +26,5 @@ six==1.16.0
 virtualenv==20.23.0
 virtualenv-clone==0.5.7
 yarl==1.9.2
+
+dill~=0.3.6

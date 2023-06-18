@@ -1,4 +1,5 @@
 import itertools
+from threading import Thread
 
 import pyxel
 
@@ -9,9 +10,10 @@ from gameObjects import (BASE_BLOCK, BLOCK_HEIGHT, BLOCK_WIDTH, SCENE_GAMEOVER,
                          GameObjectContainer, Health, Item, Player,
                          StorageChest, cleanup_list, collision, distance,
                          draw_list, resource_path, update_list)
+from savethread import save_game_periodically, load_most_recent_game
 
 
-class App:
+class Game:
     SCREEN_WIDTH = BASE_BLOCK * BLOCK_WIDTH
     SCREEN_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT
     WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
@@ -33,8 +35,7 @@ class App:
         self.numEnemies = 0
         self.numBricks = 0
 
-        pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
-        pyxel.load(resource_path("assets.pyxres"))
+        self.pyxel_init()
 
         self.player = Player(
             self.pyxel.width / 2, self.pyxel.height - 20, self, self
@@ -76,7 +77,18 @@ class App:
         self.init_world()
         self.start()
 
+    def pyxel_init(self):
+        pyxel.init(self.SCREEN_WIDTH, self.SCREEN_HEIGHT, title="Rust2Dust")
+        pyxel.load(resource_path("assets.pyxres"))
+        self.pyxel = pyxel
+
+    def resume(self):
+        self.pyxel_init()
+        self.start()
+
     def start(self):
+        save_thread = Thread(target=save_game_periodically, args=(self,))
+        save_thread.start()
         self.pyxel.run(self.update, self.draw)
 
     def spawn_instance(self, T):
@@ -210,5 +222,7 @@ class App:
 
 
 if __name__ == "__main__":
-    App()
-    print("after")
+    if loaded_game := load_most_recent_game():
+        loaded_game.resume()
+    else:
+        Game()

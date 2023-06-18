@@ -130,3 +130,7 @@ dmypy.json
 # Pyinstaller
 build/
 dist/
+
+src/backup-saves/
+
+src/saves/
