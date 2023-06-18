@@ -3,8 +3,6 @@ import os
 import random
 import sys
 
-from constants import *
-
 
 def sign(x):
     return 0 if x == 0 else math.copysign(1, x)
