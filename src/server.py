@@ -7,7 +7,7 @@ import socketio
 import main
 
 # game setup
-game = main.Game(client=False)
+game = main.GameView(client=False)
 game.WORLD_HEIGHT = game.SCREEN_HEIGHT
 game.WORLD_WIDTH = game.SCREEN_WIDTH
 game.scene = main.SCENE_PLAY

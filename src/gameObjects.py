@@ -47,8 +47,14 @@ class GameObjectContainer:
 
     def pop(self, i=None):
         x, y = self.gameList[i].gridCoord
-        self.GRID[x][y].remove(self.gameList[i])
-        return self.gameList.pop(i)
+        element_id_to_remove = self.gameList[i].id
+        try:
+            self.GRID[x][y].remove(
+                next(x for x in self.GRID[x][y] if x.id == element_id_to_remove)
+            )
+            return self.gameList.pop(i)
+        except StopIteration:
+            return None
 
     def __len__(self):
         return len(self.gameList)

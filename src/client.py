@@ -109,4 +109,4 @@ while loop:
 
 # move_t.start()
 
-game = main.Game(networked=True, client=True, game_state_query=queryCurrentGrid)
+game = main.GameView(networked=True, client=True, game_state_query=queryCurrentGrid)
