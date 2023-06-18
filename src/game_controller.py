@@ -1,7 +1,9 @@
 import itertools
 
+import pyxel
+
+from constants import SCREEN_HEIGHT, SCREEN_WIDTH
 from gameObjects import (
-    BASE_BLOCK,
     Ammo,
     Barrel,
     Brick,
@@ -17,7 +19,8 @@ from gameObjects import (
     StorageChest,
     Item,
 )
-from utils import collision, distance
+from game_model import GameModel
+from utils import collision
 
 
 class GameController:
@@ -41,15 +44,25 @@ class GameController:
             (StorageChest, Item),
         ]
 
-    def spawn_instance(self, T, player, game_objects, min_xy: tuple, max_xy: tuple):
-        tmp = T(
-            self.pyxel.rndi(min_xy[0], max_xy[0] - T.w),
-            self.pyxel.rndi(min_xy[1], max_xy[1] - T.h),
+        self.model = GameModel()
+
+    def spawn_instance(
             self,
-            self,
+            TypeClass,
+            min_xy: tuple = (0, SCREEN_WIDTH),
+            max_xy: tuple = (0, SCREEN_HEIGHT),
+    ):
+        self.model.gameObjects.append(
+            TypeClass(
+                pyxel.rndi(min_xy[0], max_xy[0] - TypeClass.w),
+                pyxel.rndi(min_xy[1], max_xy[1] - TypeClass.h),
+                self,
+                self,
+            )
         )
-        if distance(player, tmp) > BASE_BLOCK * 4:
-            game_objects.append(tmp)
+        # todo: generalize so we don't depend on only 1 player character existing
+        # if distance(player, tmp) > BASE_BLOCK * 4:
+        #     game_objects.append(tmp)
 
     def init_world(self, multiplier=10):
         for _ in range(int(15 * multiplier)):
@@ -67,7 +80,7 @@ class GameController:
         for _ in range(int(50 * multiplier)):
             self.spawn_instance(Barrel)
 
-    def collision_detection(self, game_objects):
+    def collision_detection(self, game_objects):  # todo: reimplement with quadtree
         current_view_game_objects = [x for x in game_objects if x.nearPlayer()]
         for each in self.collisionList:
             collidable_objects = [
