@@ -3,6 +3,10 @@ import os
 import sys
 
 
+def num_type(game_objects, t):
+    return len([x for x in game_objects if isinstance(x, t)])
+
+
 def sign(x):
     return 0 if x == 0 else math.copysign(1, x)
 

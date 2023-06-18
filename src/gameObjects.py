@@ -34,83 +34,6 @@ from utils import distance, stepToward, collision
 BULLETS_FIRED = 0
 
 
-class GameObjectContainer:
-    def __init__(self, app):
-        self.app = app
-        self.gameList = []
-        self.gridw, self.gridh = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
-        self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
-        self.n = 0
-
-    def append(self, elem):
-        x, y = self.gridCoord(elem)
-        elem.gridCoord = (x, y)
-        self.GRID[x][y].append(elem)
-        self.gameList.append(elem)
-
-    def getNearbyElements(
-            self, elem, dist=1
-    ):  # todo: rename to more general ie. getCollisionCandidates maybe don't do that since this is being used for occlusion culling too
-        x, y = self.gridCoord(elem)
-        relx, rely = int(x - dist), int(y - dist)
-        lenx, leny = len(self.GRID), len(self.GRID[x])
-        # currently checks up and down adjacent. not diagonal todo: maybe add that... maybe
-        nearbyElements = []
-        # *2+1 is for making the box a square around the player
-        for i in range(dist * 2 + 1):
-            for j in range(dist * 2 + 1):
-                nearbyElements.extend(self.GRID[(relx + i) % lenx][(rely + j) % leny])
-
-        return nearbyElements
-
-    def gridCoord(self, elem):
-        return int(elem.x / self.gridw), int(elem.y / self.gridh)
-
-    def updateObject(self, elem):
-        x, y = self.gridCoord(elem)
-        if elem not in self.GRID[x][y]:
-            self.GRID[x][y].append(elem)
-            oldx, oldy = elem.gridCoord
-            self.GRID[oldx][oldy].remove(elem)
-            elem.gridCoord = (x, y)
-
-    def pop(self, i=None):
-        x, y = self.gameList[i].gridCoord
-        element_id_to_remove = self.gameList[i].id
-        try:
-            self.GRID[x][y].remove(
-                next(x for x in self.GRID[x][y] if x.id == element_id_to_remove)
-            )
-            return self.gameList.pop(i)
-        except StopIteration:
-            return None
-
-    def __len__(self):
-        return len(self.gameList)
-
-    def __getitem__(self, item):
-        return self.gameList[item]
-
-    def __iter__(self):
-        self.n = 0
-        return iter(self.gameList)
-
-    def __next__(self):
-        result = self.gameList[self.n]
-        return result
-
-    def __contains__(self, item):
-        return item.id in [x.id for x in self.gameList]
-
-    def clear(self):
-        self.gameList.clear()
-
-    def remove(self, elem):
-        x, y = self.gridCoord(elem)
-        self.gameList.remove(elem)
-        self.GRID[x][y].remove(elem)
-
-
 class Inventory:
     def __init__(self, l=None):
         self.items = {}
@@ -238,8 +161,8 @@ class Creature(BaseGameObject):
         self.dirtime += 1
 
     def takeDamage(self, amount):
-        if self.damageSound and self in self.app.gameObjects.getNearbyElements(
-                self.app.player
+        if self.damageSound and self in self.app.model.gameObjects.getNearbyElements(
+                self.app.model.player
         ):
             pyxel.play(0, 6)
         self.health -= amount
@@ -248,7 +171,7 @@ class Creature(BaseGameObject):
 
     def die(self):
         self.is_alive = False
-        self.app.gameObjects.append(
+        self.app.model.gameObjects.append(
             self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app)
         )
         if self.dieSound:
@@ -285,7 +208,7 @@ class Creature(BaseGameObject):
         hit = False
         for nearby in [
             x
-            for x in self.app.gameObjects.getNearbyElements(self)
+            for x in self.app.model.gameObjects.getNearbyElements(self)
             if distance(x, self) < BASE_BLOCK * 2
                and isinstance(x, Creature)
                and x is not self
@@ -371,8 +294,8 @@ class UI:
 
     def draw(self):
         pyxel.rect(
-            self.app.player.x + self.relx,
-            self.app.player.y + self.rely,
+            self.app.model.player.x + self.relx,
+            self.app.model.player.y + self.rely,
             self.w,
             self.h,
             13,
@@ -435,8 +358,8 @@ class BuildingMaterial(Item):
             self.health -= amount
             if self.health <= 0:
                 self.die(True)
-            if self.damageSound and self in self.app.gameObjects.getNearbyElements(
-                    self.app.player
+            if self.damageSound and self in self.app.model.gameObjects.getNearbyElements(
+                    self.app.model.player
             ):
                 pyxel.play(0, 8)
 
@@ -454,19 +377,19 @@ class BuildingMaterial(Item):
 
     def die(self, sound=False, score=0):
         self.is_alive = False
-        self.app.gameObjects.append(
+        self.app.model.gameObjects.append(
             Blast(self.x + ENEMY_WIDTH / 2, self.y + ENEMY_HEIGHT / 2, self, self.app)
         )
         if sound:
             pyxel.play(1, 2)
-        self.app.score += score
+        self.app.model.score += score
 
 
 class HasInventoryMixin:
     def scatterInventory(self):
         for each in self.inventory.get_all():
             randx, randy = random.randint(-8, 8), random.randint(-8, 8)
-            self.app.gameObjects.append(
+            self.app.model.gameObjects.append(
                 each(self.x + randx, self.y + randy, self, self.app)
             )
 
@@ -497,7 +420,7 @@ class StorageChest(BuildingMaterial, HasInventoryMixin):
         if isinstance(other, Item) and not isinstance(other, StorageChest):
             if other.placed:
                 self.inventory.append(other)
-                self.app.gameObjects.remove(other)
+                self.app.model.gameObjects.remove(other)
 
     def draw(self):
         pyxel.blt(self.x, self.y, 0, self.U, self.V, self.w, self.h, 14)
@@ -628,19 +551,19 @@ class Player(Creature):
             self.y -= PLAYER_SPEED
         if pyxel.btn(self.MOVE_DOWN_KEY):
             self.y += PLAYER_SPEED
-        self.app.gameObjects.updateObject(self)
+        self.app.model.gameObjects.updateObject(self)
 
     def shoot_controls(self):
         # shoot
         if self.ammo > 0:
             if pyxel.btnp(pyxel.MOUSE_BUTTON_LEFT):
-                self.app.gameObjects.append(
+                self.app.model.gameObjects.append(
                     Bullet(
                         self.x + (PLAYER_WIDTH - BULLET_WIDTH) / 2,
                         self.y - BULLET_HEIGHT / 2,
                         self,
                         self.app,
-                        point=Point(self.app.cursor.x, self.app.cursor.y, self, self.app),
+                        point=Point(self.app.model.cursor.x, self.app.model.cursor.y, self, self.app),
                     )
                 )
                 pyxel.play(0, 1)
@@ -668,10 +591,10 @@ class Player(Creature):
                     )
                 )
             else:
-                self.app.gameObjects.append(
+                self.app.model.gameObjects.append(
                     self.inventory.getItem(inventory_index)(
-                        int(self.app.cursor.x / 8) * 8,
-                        int(self.app.cursor.y / 8) * 8,
+                        int(self.app.model.cursor.x / 8) * 8,
+                        int(self.app.model.cursor.y / 8) * 8,
                         self,
                         self.app,
                         placed=True,
@@ -704,7 +627,7 @@ class Player(Creature):
 
     def die(self):
         self.is_alive = False
-        self.app.gameObjects.append(
+        self.app.model.gameObjects.append(
             self.deathClass(self.x + self.w / 2, self.y + self.h / 2, self, self.app)
         )
         pyxel.play(0, 0)
@@ -738,7 +661,7 @@ class Player(Creature):
         if isinstance(other, Door):
             if not other.placed:
                 self.inventory.append(other)
-                self.app.gameObjects.remove(other)
+                self.app.model.gameObjects.remove(other)
             else:
                 if other.parent is not self:
                     self.bounceBack(other)
@@ -746,7 +669,7 @@ class Player(Creature):
         if isinstance(other, StorageChest):
             if not other.placed:
                 self.inventory.append(other)
-                self.app.gameObjects.remove(other)
+                self.app.model.gameObjects.remove(other)
             else:
                 if other.parent is not self:
                     self.bounceBack(other)
@@ -860,7 +783,7 @@ class Enemy(Creature):
         nearbyFood = sorted(
             [
                 x
-                for x in self.app.gameObjects.getNearbyElements(self)
+                for x in self.app.model.gameObjects.getNearbyElements(self)
                 if isinstance(x, Food)
             ],
             key=lambda x: distance(self, x),
@@ -874,8 +797,8 @@ class Enemy(Creature):
     # use this method in other places when stepping toward random point
     def step_toward_point(self, pnt=None):
         if not pnt or not self.targetPoint:
-            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(
-                0, self.app.WORLD_HEIGHT
+            randx, randy = random.randint(0, self.app.model.WORLD_WIDTH), random.randint(
+                0, self.app.model.WORLD_HEIGHT
             )
             self.targetPoint = Point(randx, randy, self, self.app)
         else:
@@ -885,8 +808,8 @@ class Enemy(Creature):
     def stateRandomWalk(self):
         self.moved = True
         if not self.targetPoint:
-            randx, randy = random.randint(0, self.app.WORLD_WIDTH), random.randint(
-                0, self.app.WORLD_HEIGHT
+            randx, randy = random.randint(0, self.app.model.WORLD_WIDTH), random.randint(
+                0, self.app.model.WORLD_HEIGHT
             )
             self.targetPoint = Point(randx, randy, self, self.app)
         if self.stepCount % 120 == 0:
@@ -897,11 +820,11 @@ class Enemy(Creature):
             )
 
         self.x, self.y, _, _ = stepToward(self.targetPoint, self, ENEMY_SPEED)
-        self.app.gameObjects.updateObject(self)
-        if self.app.player in self.app.gameObjects.getNearbyElements(self):
+        self.app.model.gameObjects.updateObject(self)
+        if self.app.model.player in self.app.model.gameObjects.getNearbyElements(self):
             if (
-                    distance(self, self.app.player) < self.attackDistance
-                    and self.app.player.is_alive
+                    distance(self, self.app.model.player) < self.attackDistance
+                    and self.app.model.player.is_alive
             ):
                 self.stepCount = 0
                 return self.stateAttack
@@ -910,17 +833,16 @@ class Enemy(Creature):
     def stateAttack(self):
         self.moved = True
         self.hunger -= 0.1
-        if not self.app.player.is_alive:
-            return self.stateRandomWalk
-        self.x, self.y, h, w = stepToward(self.app.player, self, self.speed * 3)
-        self.app.gameObjects.updateObject(self)
+        enemy_target = self.app.model.get_closest_creature(self.x, self.y)
+        self.x, self.y, h, w = stepToward(enemy_target, self, self.speed * 3)
+        self.app.model.gameObjects.updateObject(self)
         if self.stepCount > 240:
             self.stepCount = 0
             return random.choice(
                 [self.stateAttack, self.stateInit, self.stateRandomWalk]
             )
 
-        if distance(self, self.app.player) > self.attackDistance:
+        if distance(self, self.app.model.player) > self.attackDistance:
             self.stepCount = 0
             return self.stateRandomWalk
 
@@ -952,8 +874,8 @@ class Bear(Enemy):
 
 
 class Cursor(BaseGameObject):
-    def __init__(self, x, y, player, app):
-        super().__init__(x, y, player, app)
+    def __init__(self, x, y, parent, app):
+        super().__init__(x, y, parent, app)
         self.x = x
         self.y = y
         self.U = 48
@@ -964,10 +886,10 @@ class Cursor(BaseGameObject):
 
     def update(self):
         self.x = pyxel.mouse_x + (
-                self.app.player.x - SCREEN_WIDTH / 2
+                self.parent.x - SCREEN_WIDTH / 2
         )
         self.y = pyxel.mouse_y + (
-                self.app.player.y - SCREEN_HEIGHT / 2
+                self.parent.y - SCREEN_HEIGHT / 2
         )
 
     def draw(self):
