@@ -1,3 +1,5 @@
+import pyxel
+
 from gameObjects import (
     BASE_BLOCK,
     BLOCK_WIDTH,
@@ -5,6 +7,8 @@ from gameObjects import (
     WORLD_MULTIPLIER,
     Background,
     GameObjectContainer,
+    Player,
+    Cursor
 )
 
 
@@ -20,3 +24,7 @@ class GameModel:
         self.persistentGameObjects = []
         self.score = 0
         self.gameObjects = GameObjectContainer(self)
+        self.player = Player(pyxel.width / 2, pyxel.height - 20, self, self)
+        self.gameObjects.append(self.player)
+        self.cursor = Cursor(0, 0, self.player, self)
+        self.persistentGameObjects.append(self.cursor)

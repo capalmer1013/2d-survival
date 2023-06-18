@@ -81,7 +81,7 @@ class GameController:
             self.spawn_instance(Barrel)
 
     def collision_detection(self, game_objects):  # todo: reimplement with quadtree
-        current_view_game_objects = [x for x in game_objects if x.nearPlayer()]
+        current_view_game_objects = [x for x in game_objects if x.nearPlayer(game_objects, self.model.player)]
         for each in self.collisionList:
             collidable_objects = [
                 x
