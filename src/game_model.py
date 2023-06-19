@@ -1,18 +1,27 @@
 import random
 
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT
-from gameObjects import (
+from .constants import (
+    SCREEN_WIDTH,
+    SCREEN_HEIGHT,
     BASE_BLOCK,
     BLOCK_WIDTH,
     BLOCK_HEIGHT,
     WORLD_MULTIPLIER,
-    Point
 )
+from .game_objects import Point
 
 
-class GameObjectContainer:
-    def __init__(self, app):
-        self.app = app
+class GameModel:
+    WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
+    WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
+
+    def __init__(self):
+        self.maxEnemies = 100
+        self.numEnemies = 0
+        self.numBricks = 0
+        self.persistentGameObjects = []
+        self.score = 0
+        self.gameObjects = []
         self.gameList = []
         self.gridw, self.gridh = SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2
         self.GRID = [[[] for _ in range(self.gridh)] for _ in range(self.gridw)]
@@ -85,19 +94,6 @@ class GameObjectContainer:
         x, y = self.gridCoord(elem)
         self.gameList.remove(elem)
         self.GRID[x][y].remove(elem)
-
-
-class GameModel:
-    WORLD_WIDTH = BASE_BLOCK * BLOCK_WIDTH * WORLD_MULTIPLIER
-    WORLD_HEIGHT = BASE_BLOCK * BLOCK_HEIGHT * WORLD_MULTIPLIER
-
-    def __init__(self):
-        self.maxEnemies = 100
-        self.numEnemies = 0
-        self.numBricks = 0
-        self.persistentGameObjects = []
-        self.score = 0
-        self.gameObjects = GameObjectContainer(self)
 
     def get_closest_creature(self, x, y):
         dist = 1

@@ -2,35 +2,39 @@ from threading import Thread
 
 import pyxel
 
-from constants import SCREEN_WIDTH, SCREEN_HEIGHT, SCENE_PLAY, BLOCK_HEIGHT, BLOCK_WIDTH
-from gameObjects import (
+from .constants import (
+    SCREEN_WIDTH,
+    SCREEN_HEIGHT,
+    SCENE_PLAY,
+    BLOCK_HEIGHT,
+    BLOCK_WIDTH,
     BASE_BLOCK,
-    Background
-
 )
-from game_controller import GameController
-from savethread import save_game_periodically
-from utils import (
+from .game_controller import GameController
+from .game_model import GameModel
+from .game_objects import Background, Cursor
+from .savethread import save_game_periodically
+from .utils import (
     draw_list,
     resource_path,
 )
 
 
 class GameView:
-    def __init__(self):
+    def __init__(self, model: GameModel, controller: GameController):
         self.scene = SCENE_PLAY
-        self.uiObjects = []
         self.pyxel_init()
-        self.controller = GameController()
-        self.player, self.cursor = self.controller.create_player_character()
+        self.model = model
+        self.controller = controller
+        self.viewGameObjects = []
+        self.player = self.controller.create_player_character()
+        self.viewGameObjects.append(Cursor(0, 0, self.player, self))
         self.background = Background(BLOCK_WIDTH, BLOCK_HEIGHT, self)
-
-        # config
         self.sceneDrawDict = {SCENE_PLAY: self.draw_play_scene}
-        self.controller.init_world()
         self.start()
 
-    def pyxel_init(self):
+    @staticmethod
+    def pyxel_init():
         pyxel.init(SCREEN_WIDTH, SCREEN_HEIGHT, title="Rust[2D]ust")
         pyxel.load(resource_path("assets.pyxres"))
 
@@ -53,6 +57,7 @@ class GameView:
         )
 
     def draw(self):
+        # query model for what to draw
         relx, rely = self.get_relative_xy()
         pyxel.cls(0)
         pyxel.camera(
@@ -89,8 +94,7 @@ class GameView:
             # pyxel.text(relx + 39, rely+36, f"Bones: {self.player.bones}", 7)
             # pyxel.text(relx + 39, rely+42, f"bricks: {self.player.bricks}", 7)
 
-    def draw_play_scene(self):
-        draw_list([x for x in self.controller.model.gameObjects if x.nearPlayer(self.controller.model.gameObjects,
-                                                                                self.player)])
-        draw_list(self.controller.model.persistentGameObjects)
-        draw_list(self.uiObjects)
+    def draw_play_scene(self, game_objects, player):
+        draw_list([x for x in game_objects if x.nearPlayer(game_objects, player)])
+        draw_list(self.model.persistentGameObjects)
+        draw_list(self.viewGameObjects)
